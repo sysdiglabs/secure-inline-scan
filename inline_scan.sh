@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eou pipefail
 
 ########################
 ### GLOBAL VARIABLES ###
@@ -85,7 +85,7 @@ Sysdig Inline Analyzer --
 
     Usage: ${0##*/} analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
-      -s <TEXT>  [required] URL to Sysdig Secure URL (ex: -r 'https://secure-sysdig.com')
+      -s <TEXT>  [required] URL to Sysdig Secure URL (ex: -s 'https://secure-sysdig.com')
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
