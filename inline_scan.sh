@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eo pipefail
+set -euo pipefail
 
 ########################
 ### GLOBAL VARIABLES ###
@@ -127,7 +127,7 @@ main() {
         fi
         VULN_SCAN=true
         get_and_validate_scanner_options "$@"
-        if [[ ! "${v_flag}" ]]; then
+        if [[ ! "${v_flag:-}" ]]; then
             get_and_validate_images "${VALIDATED_OPTIONS}"
         fi
         prepare_inline_container
@@ -172,11 +172,11 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - must specify an image to analyze" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ ! "${s_flag}" ]]; then
+    elif [[ ! "${s_flag:-}" ]]; then
         printf '\n\t%s\n\n' "ERROR - must provide an Sysdig Secure endpoint" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${s_flag}" ]] && [[ ! "${k_flag}" ]]; then
+    elif [[ "${s_flag:-}" ]] && [[ ! "${k_flag:-}" ]]; then
         printf '\n\t%s\n\n' "ERROR - must provide the Sysdig Secure API token" >&2
         display_usage_analyzer >&2
         exit 1
@@ -184,7 +184,7 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - invalid sysdig secure endpoint provided - ${SYSDIG_SCANNING_URL}" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${a_flag}" ]]; then
+    elif [[ "${a_flag:-}" ]]; then
         # transform all commas to spaces & cast to an array
         local annotation_array=(${SYSDIG_ANNOTATIONS//,/ })
         # get count of = in annotation string
@@ -195,29 +195,29 @@ get_and_validate_analyzer_options() {
             display_usage_analyzer >&2
             exit 1
         fi
-    elif [[ ! "${g_flag}" ]] && [[ ! "${d_flag}" ]] && [[ ! "${m_flag}" ]]; then
+    elif [[ ! "${g_flag:-}" ]] && [[ ! "${d_flag:-}" ]] && [[ ! "${m_flag:-}" ]]; then
         printf '\n\t%s\n\n' "ERROR - must provide an image digest, manifest, or specify -g to generate a digest" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${g_flag}" ]] && ([[ "${d_flag}" ]] || [[ "${m_flag}" ]]); then
+    elif [[ "${g_flag:-}" ]] && ([[ "${d_flag:-}" ]] || [[ "${m_flag:-}" ]]); then
         printf '\n\t%s\n\n' "ERROR - cannot generate digest when a manifest or digest is provided" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${f_flag}" ]] && [[ ! -f "${DOCKERFILE}" ]]; then
+    elif [[ "${f_flag:-}" ]] && [[ ! -f "${DOCKERFILE}" ]]; then
         printf '\n\t%s\n\n' "ERROR - Dockerfile: ${DOCKERFILE} does not exist" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${m_flag}" ]] && [[ ! -f "${MANIFEST_FILE}" ]];then
+    elif [[ "${m_flag:-}" ]] && [[ ! -f "${MANIFEST_FILE}" ]];then
         printf '\n\t%s\n\n' "ERROR - Manifest: ${MANIFEST_FILE} does not exist" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${t_flag}" ]] && [[ ! "${TIMEOUT}" =~ ^[0-9]+$ ]]; then
+    elif [[ "${t_flag:-}" ]] && [[ ! "${TIMEOUT}" =~ ^[0-9]+$ ]]; then
         printf '\n\t%s\n\n' "ERROR - timeout must be set to a valid integer" >&2
         display_usage_analyzer >&2
         exit 1
     fi
 
-    if [[ "$V_flag" ]]; then
+    if [[ "${V_flag:-}" ]]; then
         set -x
     fi
 
@@ -253,41 +253,41 @@ get_and_validate_scanner_options() {
         printf '\n\t%s\n\n' 'ERROR - Docker is not installed or cannot be found in $PATH' >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ "${d_flag}" ]] && [[ "${#@}" -gt 1 ]]; then
+    elif [[ "${d_flag-""}" ]] && [[ "${#@}" -gt 1 ]]; then
         printf '\n\t%s\n\n' "ERROR - If specifying a Dockerfile, only 1 image can be scanned at a time" >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ "${r_flag}" ]] && ! (mkdir -p ./anchore-reports); then
+    elif [[ "${r_flag-""}" ]] && ! (mkdir -p ./anchore-reports); then
         printf '\n\t%s\n\n' "ERROR - ${PWD}/anchore-reports is not writable" >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ "${b_flag}" ]] && [[ ! -f "${POLICY_BUNDLE}" ]]; then
+    elif [[ "${b_flag-""}" ]] && [[ ! -f "${POLICY_BUNDLE}" ]]; then
         printf '\n\t%s\n\n' "ERROR - Policy Bundle: ${POLICY_BUNDLE} does not exist" >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ "${d_flag}" ]] && [[ ! -f "${DOCKERFILE}" ]]; then
+    elif [[ "${d_flag-""}" ]] && [[ ! -f "${DOCKERFILE}" ]]; then
         printf '\n\t%s\n\n' "ERROR - Dockerfile: ${DOCKERFILE} does not exist" >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ ! "${v_flag}" ]] && [[ "${#@}" -eq 0 ]]; then
+    elif [[ ! "${v_flag-""}" ]] && [[ "${#@}" -eq 0 ]]; then
         printf '\n\t%s\n\n' "ERROR - ${0##*/} requires at least 1 image name as input, unless utilizing -v option" >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ "${v_flag}" ]] && [[ ! -d "${VOLUME_PATH}" ]]; then
+    elif [[ "${v_flag-""}" ]] && [[ ! -d "${VOLUME_PATH}" ]]; then
         printf '\n\t%s\n\n' "ERROR - ${VOLUME_PATH} is not a directory" >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ "${v_flag}" ]] && [[ "${d_flag}" ]]; then
+    elif [[ "${v_flag-""}" ]] && [[ "${d_flag-""}" ]]; then
         printf '\n\t%s\n\n' "ERROR - cannot specify image volume & Dockerfile. Dockerfile option only supports scanning one image at time" >&2
         display_usage_scanner >&2
         exit 1
-    elif [[ "${t_flag}" ]] && [[ ! "${TIMEOUT}" =~ ^[0-9]+$ ]]; then
+    elif [[ "${t_flag:-}" ]] && [[ ! "${TIMEOUT}" =~ ^[0-9]+$ ]]; then
         printf '\n\t%s\n\n' "ERROR - timeout must be set to a valid integer" >&2
         display_usage_scanner >&2
         exit 1
     fi
 
-    if [[ "$V_flag" ]]; then
+    if [[ "${V_flag:-}" ]]; then
         set -x
     fi
 
@@ -297,27 +297,27 @@ get_and_validate_scanner_options() {
 get_and_validate_images() {
     # Add all unique positional input params to IMAGE_NAMES array
     for i in $@; do
-        if [[ ! "${IMAGE_NAMES[@]}" =~ "$i" ]]; then
+        if [[ ! "${IMAGE_NAMES[@]:-}" =~ "$i" ]]; then
             IMAGE_NAMES+=("$i")
         fi
     done
 
     # Make sure all images are available locally, add to FAILED_IMAGES array if not
-    for i in "${IMAGE_NAMES[@]}"; do
-        if ([[ "${p_flag}" == true ]] && [[ "${VULN_SCAN}" == true ]]) || [[ "${P_flag}" == true ]]; then
+    for i in "${IMAGE_NAMES[@]-}"; do
+        if ([[ "${p_flag:-false}" == true ]] && [[ "${VULN_SCAN:-false}" == true ]]) || [[ "${P_flag:-false}" == true ]]; then
             echo "Pulling image -- $i"
             docker pull $i || true
         fi
 
         docker inspect "$i" &> /dev/null || FAILED_IMAGES+=("$i")
 
-        if [[ ! "${FAILED_IMAGES[@]}" =~ "$i" ]]; then
+        if [[ ! "${FAILED_IMAGES[@]:-}" =~ "$i" ]]; then
             SCAN_IMAGES+=("$i")
         fi
     done
 
     # Give error message on any invalid image names
-    if [[ "${#FAILED_IMAGES[@]}" -gt 0 ]]; then
+    if [[ "${#FAILED_IMAGES[@]:-}" -gt 0 ]]; then
         printf '\n%s\n\n' "WARNING - Please pull remote image, or build/tag all local images before attempting analysis again" >&2
 
         if [[ "${#FAILED_IMAGES[@]}" -ge "${#IMAGE_NAMES[@]}" ]]; then
@@ -334,7 +334,7 @@ get_and_validate_images() {
 
 prepare_inline_container() {
     # Check if env var is overriding which inline-scan image to utilize.
-    if [[ -z "${SYSDIG_CI_IMAGE}" ]]; then
+    if [[ -z "${SYSDIG_CI_IMAGE-docker.io/anchore/inline-scan:v0.5.0}" ]]; then
         printf '\n%s\n' "Pulling ${INLINE_SCAN_IMAGE}"
         docker pull "${INLINE_SCAN_IMAGE}"
     else
@@ -345,15 +345,15 @@ prepare_inline_container() {
     CREATE_CMD=('docker create --name "${DOCKER_NAME}"')
     RUN_CMD=('docker run -i --name "${DOCKER_NAME}"')
 
-    if [[ "${t_flag}" ]]; then
+    if [[ "${t_flag-""}" ]]; then
         CREATE_CMD+=('-e TIMEOUT="${TIMEOUT}"')
         RUN_CMD+=('-e TIMEOUT="${TIMEOUT}"')
     fi
-    if [[ "${V_flag}" ]]; then
+    if [[ "${V_flag-""}" ]]; then
         CREATE_CMD+=('-e VERBOSE=true')
         RUN_CMD+=('-e VERBOSE=true')
     fi
-    if [[ "${v_flag}" ]]; then
+    if [[ "${v_flag-""}" ]]; then
         printf '\n%s\n' "Creating volume mount -- ${VOLUME_PATH}:/anchore-engine"
         CREATE_CMD+=('-v "${VOLUME_PATH}:/anchore-engine:rw"')
     fi
@@ -363,17 +363,17 @@ prepare_inline_container() {
 }
 
 start_vuln_scan() {
-    if [[ "${f_flag}" ]]; then
+    if [[ "${f_flag-""}" ]]; then
         CREATE_CMD+=('-f')
         RUN_CMD+=('-f')
     fi
-    if [[ "${r_flag}" ]]; then
+    if [[ "${r_flag-""}" ]]; then
         CREATE_CMD+=('-r')
         RUN_CMD+=('-r')
     fi
 
     # If no files need to be copied to container, pipe docker save output to stdin of docker run command.
-    if [[ ! "${d_flag}" ]] && [[ ! "${v_flag}" ]] && [[ ! "${b_flag}" ]] && [[ "${#SCAN_IMAGES[@]}" -eq 1 ]]; then
+    if [[ ! "${d_flag-""}" ]] && [[ ! "${v_flag-""}" ]] && [[ ! "${b_flag-""}" ]] && [[ "${#SCAN_IMAGES[@]}" -eq 1 ]]; then
         RUN_CMD+=('-i "${SCAN_IMAGES[*]}"')
 
         # If image is passed without a tag, append :latest to docker save to prevent skopeo manifest error
@@ -384,11 +384,11 @@ start_vuln_scan() {
         fi
     else
         # Prepare commands for container creation & copying all files to container.
-        if [[ "${b_flag}" ]]; then
+        if [[ "${b_flag-""}" ]]; then
             CREATE_CMD+=('-b "${POLICY_BUNDLE}"')
             COPY_CMDS+=('docker cp "${POLICY_BUNDLE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${POLICY_BUNDLE})";')
         fi
-        if [[ "${d_flag}" ]] && [[ "${#SCAN_IMAGES[@]}" -eq 1 ]]; then
+        if [[ "${d_flag-""}" ]] && [[ "${#SCAN_IMAGES[@]}" -eq 1 ]]; then
             CREATE_CMD+=('-d "${DOCKERFILE}" -i "${SCAN_IMAGES[*]}"')
             COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
         fi
@@ -400,7 +400,7 @@ start_vuln_scan() {
         docker start -ia "${DOCKER_NAME}"
     fi
 
-    if [[ "${r_flag}" ]]; then
+    if [[ "${r_flag-""}" ]]; then
         echo "Copying scan reports from ${DOCKER_NAME} to ${PWD}/anchore-reports/"
         docker cp "${DOCKER_NAME}:/anchore-engine/anchore-reports/" ./
     fi
@@ -408,23 +408,23 @@ start_vuln_scan() {
 
 start_analysis() {
     # Prepare commands for container creation & copying all files to container.
-    if [[ "${d_flag}" ]]; then
+    if [[ "${d_flag-""}" ]]; then
         CREATE_CMD+=('-d "${IMAGE_DIGEST_SHA}"')
     fi
-    if [[ "${i_flag}" ]]; then
+    if [[ "${i_flag-""}" ]]; then
         CREATE_CMD+=('-i "${SYSDIG_IMAGE_ID}"')
     fi
-    if [[ "${a_flag}" ]]; then
+    if [[ "${a_flag-""}" ]]; then
         CREATE_CMD+=('-a "${SYSDIG_ANNOTATIONS}"')
     fi
-    if [[ "${g_flag}" ]]; then
+    if [[ "${g_flag-""}" ]]; then
         CREATE_CMD+=('-g')
     fi
-    if [[ "${m_flag}" ]]; then
+    if [[ "${m_flag-""}" ]]; then
         CREATE_CMD+=('-m "${MANIFEST_FILE}"')
         COPY_CMDS+=('docker cp "${MANIFEST_FILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${MANIFEST_FILE})";')
     fi
-    if [[ "$f_flag" ]]; then
+    if [[ "${f_flag-""}" ]]; then
         CREATE_CMD+=('-f "${DOCKERFILE}"')
         COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
     fi
@@ -447,7 +447,7 @@ start_analysis() {
 
     CREATE_CMD+=("${SCAN_IMAGES[*]}")
     DOCKER_ID=$(eval "${CREATE_CMD[*]}")
-    eval "${COPY_CMDS[*]}"
+    eval "${COPY_CMDS[*]-}"
     save_and_copy_images
     echo
     docker start -ia "${DOCKER_NAME}"
@@ -483,13 +483,13 @@ start_analysis() {
 
 save_and_copy_images() {
     # Save all image files to /tmp and copy to created container
-    for image in "${SCAN_IMAGES[@]}"; do
+    for image in "${SCAN_IMAGES[@]-}"; do
         local base_image_name="${image##*/}"
         echo "Saving ${image} for local analysis"
         local save_file_name="${base_image_name}.tar"
         IMAGE_FILES+=("$save_file_name")
 
-        if [[ "${v_flag}" ]]; then
+        if [[ "${v_flag-""}" ]]; then
             local save_file_path="${VOLUME_PATH}/${save_file_name}"
         else
             mkdir -p /tmp/sysdig
@@ -512,7 +512,7 @@ save_and_copy_images() {
             exit 1
         fi
 
-        if [[ ! "${v_flag}" ]]; then
+        if [[ ! "${v_flag-""}" ]]; then
             docker cp "${save_file_path}" "${DOCKER_NAME}:/anchore-engine/${save_file_name}"
             rm -f "${save_file_path}"
         fi
@@ -530,7 +530,7 @@ cleanup() {
     fi
     set +e
 
-    if [[ -z "${DOCKER_ID}" ]]; then
+    if [[ -z "${DOCKER_ID-""}" ]]; then
         DOCKER_ID="${DOCKER_NAME:-$(docker ps -a | grep 'inline-anchore-engine' | awk '{print $1}')}"
     fi
 
