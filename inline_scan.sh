@@ -317,7 +317,7 @@ get_and_validate_images() {
     done
 
     # Give error message on any invalid image names
-    if [[ "${#FAILED_IMAGES[@]:-}" -gt 0 ]]; then
+    if [[ "${#FAILED_IMAGES[@]}" -gt 0 ]]; then
         printf '\n%s\n\n' "WARNING - Please pull remote image, or build/tag all local images before attempting analysis again" >&2
 
         if [[ "${#FAILED_IMAGES[@]}" -ge "${#IMAGE_NAMES[@]}" ]]; then
