@@ -20,7 +20,7 @@ This script is useful for performing image analysis on locally built container i
 
 #### Analyze the image and post the results to Sysdig Secure.
       
-    ./inline_scan.sh analyze -s https://secure-staging3.sysdig.com -k <token> -g -P docker.io/alpine:3.2
+    ./inline_scan.sh analyze -s https://secure.sysdig.com -k <token> -g -P docker.io/alpine:3.2
     Pulling image -- docker.io/alpine:3.2
     3.2: Pulling from library/alpine
     95f5ecd24e43: Pull complete
@@ -40,7 +40,7 @@ This script is useful for performing image analysis on locally built container i
     [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/alpine:3.2 fulldigest=docker.io/alpine@sha256:98f5f2d17bd1c8ba230ea9a8abc21b8d7fc8727c34a4de62d000f29393cf3089
      Analysis complete!
      
-    Sending analysis archive to https://secure-staging3.sysdig.com/api/scanning/v1
+    Sending analysis archive to https://secure.sysdig.com/api/scanning/v1
     {}
     Cleaning up docker container: 2177a7042fafce1bc70d12dcb041ec3da7eb8e90d683eb95d9aa74f54b018f7c 
 
