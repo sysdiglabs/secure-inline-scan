@@ -33,7 +33,8 @@ SYSDIG_ANNOTATIONS="foo=bar"
 IMAGE_DIGEST_SHA="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 MANIFEST_FILE="./manifest.json"
-
+POST_CALL_RETRIES=3
+GET_CALL_RETRIES=100
 
 display_usage() {
 cat << EOF
@@ -68,6 +69,8 @@ Sysdig Inline Analyzer --
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -t <TEXT>  [optional] Specify timeout for image analysis in seconds. Defaults to 300s. (ex: -t 500)
+      -d <TEXT>  [optional] Specify number of retries to POST analysis result to Secure backend. Defaults to 3 attempts, max 10. (ex: -d 3)
+      -r <TEXT>  [optional] Specify number of retries to GET the scan results from Secure backend. Defaults to 100 attempts, max 300. (ex: -r 100)
       -P  [optional] Pull docker image from registry
       -V  [optional] Increase verbosity
 
@@ -109,6 +112,8 @@ get_and_validate_analyzer_options() {
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
             t  ) t_flag=true; TIMEOUT="${OPTARG}";;
+            d  ) d_flag=true; POST_CALL_RETRIES="${OPTARG}";;
+            r  ) r_flag=true; GET_CALL_RETRIES="${OPTARG}";;
             P  ) P_flag=true;;
             V  ) V_flag=true;;
             h  ) display_usage_analyzer; exit;;
@@ -164,6 +169,22 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${t_flag:-}" ]] && [[ ! "${TIMEOUT}" =~ ^[0-9]+$ ]]; then
         printf '\n\t%s\n\n' "ERROR - timeout must be set to a valid integer" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${d_flag:-}" ]] && [[ ! "${POST_CALL_RETRIES}" =~ ^[0-9]+$ ]]; then
+        printf '\n\t%s\n\n' "ERROR - number of POST call retries must be set to a valid integer" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${d_flag:-}" ]] && [[ "${POST_CALL_RETRIES}" -gt 10 ]]; then
+        printf '\n\t%s\n\n' "ERROR - max number of retries for POST call is 10" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${r_flag:-}" ]] && [[ ! "${GET_CALL_RETRIES}" =~ ^[0-9]+$ ]]; then
+        printf '\n\t%s\n\n' "ERROR - number of GET call retries must be set to a valid integer" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${r_flag:-}" ]] && [[ "${GET_CALL_RETRIES}" -gt 300 ]]; then
+        printf '\n\t%s\n\n' "ERROR - max number of retries for GET call is 300" >&2
         display_usage_analyzer >&2
         exit 1
     fi
@@ -308,7 +329,15 @@ start_analysis() {
         exit 1
     fi
 
-	HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
+    # Posting the archive to the secure backend
+    for ((i=0;  i<${POST_CALL_RETRIES}; i++)); do
+        HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
+        if [ ! -z  "$HCODE" ]; then
+            break
+        fi
+        echo -n "." && sleep 2
+    done
+
 	if [[ "${HCODE}" != 200 ]]; then
 	    printf '\n\t%s\n\n' "ERROR - unable to POST ${analysis_archive_name} to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
 	    if [ -f /tmp/sysdig/sysdig_output.log ]; then
@@ -324,14 +353,13 @@ start_analysis() {
 }
 
 check_status_with_digest() {
-    RETRIES=100
-    # Then fetching the result of each scanned digest
-    for ((i=0;  i<${RETRIES}; i++)); do
+    # Fetching the result of each scanned digest
+    for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
         status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/images/${IMAGE_DIGEST}/checkSummary?tag=$FULLTAG" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
         if [ ! -z  "$status" ]; then
             break
         fi
-        echo -n "." && sleep 5
+        echo -n "." && sleep 1
     done
  
     printf "Scan Report - \n"
