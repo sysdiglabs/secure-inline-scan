@@ -78,8 +78,8 @@ cat << EOF
 Sysdig Inline Analyzer --
 
   Script for performing analysis on local docker images, utilizing the Sysdig analyzer subsystem.
-  After image is analyzed, the resulting Anchore image archive is sent to a remote Sysdig installation
-  using the -r <URL> option. This allows inline_analysis data to be persisted & utilized for reporting.
+  After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
+  using the -s <URL> option. This allows inline_analysis data to be persisted & utilized for reporting.
 
   Images should be built & tagged locally.
 
@@ -88,12 +88,10 @@ Sysdig Inline Analyzer --
       -s <TEXT>  [required] URL to Sysdig Secure URL (ex: -s 'https://secure-sysdig.com')
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
-      -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -t <TEXT>  [optional] Specify timeout for image analysis in seconds. Defaults to 300s. (ex: -t 500)
-      -g  [optional] Generate an image digest from docker save tarball
       -P  [optional] Pull docker image from registry
       -V  [optional] Increase verbosity
 
@@ -144,13 +142,11 @@ get_and_validate_analyzer_options() {
             s  ) s_flag=true; SYSDIG_SCANNING_URL="${OPTARG%%}"/api/scanning/v1; SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore;;
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             a  ) a_flag=true; SYSDIG_ANNOTATIONS="${OPTARG}";;
-            d  ) d_flag=true; IMAGE_DIGEST_SHA="${OPTARG}";;
             f  ) f_flag=true; DOCKERFILE="${OPTARG}";;
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
             t  ) t_flag=true; TIMEOUT="${OPTARG}";;
             P  ) P_flag=true;;
-            g  ) g_flag=true;;
             V  ) V_flag=true;;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
@@ -181,7 +177,7 @@ get_and_validate_analyzer_options() {
         display_usage_analyzer >&2
         exit 1
     elif ! curl -k -s --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/policies" > /dev/null; then
-        printf '\n\t%s\n\n' "ERROR - invalid sysdig secure endpoint provided - ${SYSDIG_SCANNING_URL}" >&2
+        printf '\n\t%s\n\n' "ERROR - invalid combintaion of sysdig secure endpoint : token provided - ${SYSDIG_SCANNING_URL} : ${SYSDIG_API_TOKEN}" >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${a_flag:-}" ]]; then
@@ -195,12 +191,8 @@ get_and_validate_analyzer_options() {
             display_usage_analyzer >&2
             exit 1
         fi
-    elif [[ ! "${g_flag:-}" ]] && [[ ! "${d_flag:-}" ]] && [[ ! "${m_flag:-}" ]]; then
-        printf '\n\t%s\n\n' "ERROR - must provide an image digest, manifest, or specify -g to generate a digest" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${g_flag:-}" ]] && ([[ "${d_flag:-}" ]] || [[ "${m_flag:-}" ]]); then
-        printf '\n\t%s\n\n' "ERROR - cannot generate digest when a manifest or digest is provided" >&2
+    elif [[ "${m_flag:-}" ]]; then
+        printf '\n\t%s\n\n' "ERROR - cannot generate digest when a manifest is provided" >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${f_flag:-}" ]] && [[ ! -f "${DOCKERFILE}" ]]; then
@@ -408,9 +400,15 @@ start_vuln_scan() {
 
 start_analysis() {
     # Prepare commands for container creation & copying all files to container.
-    if [[ "${d_flag-""}" ]]; then
-        CREATE_CMD+=('-d "${IMAGE_DIGEST_SHA}"')
-    fi
+    
+    for i in "${SCAN_IMAGES[@]}"; do
+        # Fetch the individual digest for each succesful image and add it to the list of digests
+        IMAGE_DIGEST=$(docker image inspect "$i" -f "{{.RepoDigests}}" | cut -f2 -d "@" | cut -f1 -d "]")
+        IMAGE_DIGEST_SHA=$IMAGE_DIGEST        
+    done
+
+    CREATE_CMD+=('-d "${IMAGE_DIGEST_SHA}"')
+    
     if [[ "${i_flag-""}" ]]; then
         CREATE_CMD+=('-i "${SYSDIG_IMAGE_ID}"')
     fi
@@ -459,6 +457,11 @@ start_analysis() {
     if [[ -f "/tmp/sysdig/${analysis_archive_name}" ]]; then
         printf '%s\n' " Analysis complete!"
         printf '\n%s\n' "Sending analysis archive to ${SYSDIG_SCANNING_URL%%/}"
+    else
+        printf '\n\t%s\n\n' "ERROR - analysis file invalid: /tmp/sysdig/${analysis_archive_name}. An error occured during analysis."  >&2
+        display_usage_analyzer >&2
+        exit 1
+    fi
 
 	HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
 	if [[ "${HCODE}" != 200 ]]; then
@@ -469,14 +472,31 @@ start_analysis() {
 		printf '\n%s\n' "***END SERVICE RESPONSE****" >&2
 	    fi
 	    exit 1
-	else
-	    if [ -f /tmp/sysdig/sysdig_output.log ]; then
-		cat /tmp/sysdig/sysdig_output.log
-	    fi
+	fi
+
+    FULLTAG="${SCAN_IMAGES[0]}"
+    check_status_with_digest
+}
+
+check_status_with_digest() {
+    RETRIES=100
+    # Then fetching the result of each scanned digest
+    for ((i=0;  i<${RETRIES}; i++)); do
+        status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/images/${IMAGE_DIGEST}/checkSummary?tag=$FULLTAG" | grep "status" | awk '{print $2}')
+        if [ ! -z  "$status" ]; then
+            break
         fi
+        echo -n "." && sleep 5
+    done
+ 
+    echo -n "Scan Report - "
+    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/images/${IMAGE_DIGEST}/checkSummary?tag=$FULLTAG"
+
+    if [[ "${status}" = "pass" ]]; then
+        printf "\nStatus is pass\n"
+        exit 0
     else
-        printf '\n\t%s\n\n' "ERROR - analysis file invalid: /tmp/sysdig/${analysis_archive_name}. An error occured during analysis."  >&2
-        display_usage_analyzer >&2
+        printf "\nStatus is fail\n"
         exit 1
     fi
 }

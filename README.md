@@ -4,103 +4,85 @@ This script is useful for performing image analysis on locally built container i
 
 ## Usage
 
-    $ ./inline_scan.sh 
-    
-    Sysdig Inline Scanner/Analyzer --
-    
-      Wrapper script for performing vulnerability scan or image analysis on local docker images, utilizing the Sysdig inline_scan container.
-      For more detailed usage instructions use the -h option after specifying scan or analyze.
-    
-        Usage: inline_scan.sh <scan|analyze> [ OPTIONS ]
-    
-    
-            ERROR - must specify operation ('scan' or 'analyze')
+    $ /inline_scan.sh analyze
+      
+      	ERROR - must specify an image to analyze
+      
+      
+      Sysdig Inline Analyzer --
+      
+        Script for performing analysis on local docker images, utilizing the Sysdig analyzer subsystem.
+        After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
+        using the -s <URL> option. This allows inline_analysis data to be persisted & utilized for reporting.
+      
+        Images should be built & tagged locally.
+      
+          Usage: inline_scan.sh analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
+      
+            -s <TEXT>  [required] URL to Sysdig Secure URL (ex: -s 'https://secure-sysdig.com')
+            -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
+            -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
+            -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
+            -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
+            -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
+            -t <TEXT>  [optional] Specify timeout for image analysis in seconds. Defaults to 300s. (ex: -t 500)
+            -P  [optional] Pull docker image from registry
+            -V  [optional] Increase verbosity
+
 
 ## Example
 
 #### Analyze the image and post the results to Sysdig Secure.
       
-    ./inline_scan.sh analyze -s https://secure.sysdig.com -k <token> -g -P docker.io/alpine:3.2
-    Pulling image -- docker.io/alpine:3.2
-    3.2: Pulling from library/alpine
-    95f5ecd24e43: Pull complete
-    Digest: sha256:e9a2035f9d0d7cee1cdd445f5bfa0c5c646455ee26f14565dce23cf2d2de7570
-    Status: Downloaded newer image for alpine:3.2
-    docker.io/library/alpine:3.2
-     
-    Pulling docker.io/anchore/inline-scan:dev
-    dev: Pulling from anchore/inline-scan
-    Digest: sha256:50fb6ec97569e4af59870b02e91d28aecebac51ec464621b4ea18e103c26615f
-    Status: Image is up to date for anchore/inline-scan:dev
-    docker.io/anchore/inline-scan:dev
-    Saving docker.io/alpine:3.2 for local analysis
-    Successfully prepared image archive -- /tmp/sysdig/alpine:3.2.tar
-     
-    Analyzing docker.io/alpine:3.2...
-    [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/alpine:3.2 fulldigest=docker.io/alpine@sha256:98f5f2d17bd1c8ba230ea9a8abc21b8d7fc8727c34a4de62d000f29393cf3089
-     Analysis complete!
-     
-    Sending analysis archive to https://secure.sysdig.com/api/scanning/v1
-    {}
-    Cleaning up docker container: 2177a7042fafce1bc70d12dcb041ec3da7eb8e90d683eb95d9aa74f54b018f7c 
-
-
-#### Perform the image scan locally
-
-    $ ./inline_scan.sh scan -p docker.io/alpine:3.2
-    Pulling image -- docker.io/alpine:3.2
-    3.2: Pulling from library/alpine
-    Digest: sha256:e9a2035f9d0d7cee1cdd445f5bfa0c5c646455ee26f14565dce23cf2d2de7570
-    Status: Image is up to date for alpine:3.2
-    docker.io/library/alpine:3.2
+    ./inline_scan.sh analyze -s https://secure.sysdig.com -k <token> -P docker.io/perl:5.30
+    Pulling image -- docker.io/perl:5.30
+    5.30: Pulling from library/perl
+    Digest: sha256:5f3bd735d306a56e308dad312249cd437d2f4d118d85561c8352b5488455e74e
+    Status: Image is up to date for perl:5.30
+    docker.io/library/perl:5.30
     
     Using local image for scanning -- docker.io/anchore/inline-scan:v0.5.0
-    Starting Anchore Engine
-    Starting Postgresql... Postgresql started successfully!
-    Starting Docker registry... Docker registry started successfully!
-    Waiting for Anchore Engine to be available.
+    Saving docker.io/perl:5.30 for local analysis
+    Successfully prepared image archive -- /tmp/sysdig/perl:5.30.tar
     
-            Status: not_ready..
+    Analyzing docker.io/perl:5.30...
+    [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/perl:5.30 fulldigest=docker.io/perl@sha256:5f3bd735d306a56e308dad312249cd437d2f4d118d85561c8352b5488455e74e
+     Analysis complete!
     
-    Anchore Engine is available!
+    Sending analysis archive to https://secure-staging.sysdig.com/api/scanning/v1
+    Scan Report - {
+      "imageDigest": "sha256:5f3bd735d306a56e308dad312249cd437d2f4d118d85561c8352b5488455e74e",
+      "at": "2019-10-10T00:44:15Z",
+      "tag": "docker.io/perl:5.30",
+      "status": "fail",
+      "policyBundleId": "default",
+      "finalAction": "stop",
+      "finalActionReason": "policy_evaluation",
+      "nStops": 20,
+      "nWarns": 329,
+      "policies": [
+       {
+        "policyId": "default",
+        "policyName": "DefaultPolicy",
+        "nStops": 20,
+        "nWarns": 329,
+        "rules": [
+         {
+          "gate": "dockerfile",
+          "trigger": "instruction",
+          "nStops": 0,
+          "nWarns": 1
+         },
+         {
+          "gate": "vulnerabilities",
+          "trigger": "package",
+          "nStops": 20,
+          "nWarns": 328
+         }
+        ]
+       }
+      ]
+     }
+    Status is fail
     
-    
-    Preparing docker.io/alpine:3.2 for analysis
-    
-    Getting image source signatures
-    Copying blob sha256:2f0b1957d1f7074296e0d6388139b7a968e8c051f8b6227f3610757f7407af05
-     5.38 MB / 5.38 MB  0s
-    Copying config sha256:98f5f2d17bd1c8ba230ea9a8abc21b8d7fc8727c34a4de62d000f29393cf3089
-     1.48 KB / 1.48 KB  0s
-    Writing manifest to image destination
-    Storing signatures
-    
-    Image archive loaded into Anchore Engine using tag -- alpine:3.2
-    Waiting for analysis to complete...
-    
-            Status: not_analyzed.
-            Status: analyzing
-            Status: analyzed
-    
-    Analysis completed!
-    
-    
-            Policy Evaluation - alpine:3.2
-    -----------------------------------------------------------
-    
-    Image Digest: sha256:d9d7670078b3a5fc76256a3b8f5ddf5f4be98d17de92c3aa26809520e7cb2d48
-    Full Tag: localhost:5000/alpine:3.2
-    Image ID: 98f5f2d17bd1c8ba230ea9a8abc21b8d7fc8727c34a4de62d000f29393cf3089
-    Status: pass
-    Last Eval: 2019-09-26T16:00:26Z
-    Policy ID: 2c53a13c-1765-11e8-82ef-23527761d060
-    Final Action: warn
-    Final Action Reason: policy_evaluation
-    
-    Gate                   Trigger                               Detail                                                                                     Status        
-    dockerfile             instruction                           Dockerfile directive 'HEALTHCHECK' not found, matching condition 'not_exists' check        warn          
-    vulnerabilities        stale_feed_data                       The vulnerability feed for this image distro is older than MAXAGE (2) days                 warn          
-    vulnerabilities        vulnerability_data_unavailable        Feed data unavailable, cannot perform CVE scan for distro: alpine:3.2.3                    warn          
-    
-    
-    Cleaning up docker container: 19216-inline-anchore-engine
+    Cleaning up docker container: d31e15fab0293d0e400d42022358ee4f4b95277e07651c3f40f3173afe674178
