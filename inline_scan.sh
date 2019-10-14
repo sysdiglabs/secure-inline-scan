@@ -33,7 +33,7 @@ SYSDIG_ANNOTATIONS="foo=bar"
 IMAGE_DIGEST_SHA="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 MANIFEST_FILE="./manifest.json"
-POST_CALL_RETRIES=3
+POST_CALL_RETRIES=6
 GET_CALL_RETRIES=100
 
 display_usage() {
@@ -69,7 +69,7 @@ Sysdig Inline Analyzer --
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -t <TEXT>  [optional] Specify timeout for image analysis in seconds. Defaults to 300s. (ex: -t 500)
-      -d <TEXT>  [optional] Specify number of retries to POST analysis result to Secure backend. Defaults to 3 attempts, max 10. (ex: -d 3)
+      -d <TEXT>  [optional] Specify number of retries to POST analysis result to Secure backend. Defaults to 6 attempts, max 12. (ex: -d 6)
       -r <TEXT>  [optional] Specify number of retries to GET the scan results from Secure backend. Defaults to 100 attempts, max 300. (ex: -r 100)
       -P  [optional] Pull docker image from registry
       -V  [optional] Increase verbosity
@@ -175,8 +175,8 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - number of POST call retries must be set to a valid integer" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${d_flag:-}" ]] && [[ "${POST_CALL_RETRIES}" -gt 10 ]]; then
-        printf '\n\t%s\n\n' "ERROR - max number of retries for POST call is 10" >&2
+    elif [[ "${d_flag:-}" ]] && [[ "${POST_CALL_RETRIES}" -gt 12 ]]; then
+        printf '\n\t%s\n\n' "ERROR - max number of retries for POST call is 12" >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${r_flag:-}" ]] && [[ ! "${GET_CALL_RETRIES}" =~ ^[0-9]+$ ]]; then
@@ -266,18 +266,17 @@ prepare_inline_container() {
 
 start_analysis() {
     # Prepare commands for container creation & copying all files to container.
-    
-    for i in "${SCAN_IMAGES[@]}"; do
-        # Fetch the individual digest for each succesful image and add it to the list of digests
-        IMAGE_DIGEST=$(docker image inspect "$i" -f "{{.RepoDigests}}" | cut -f2 -d "@" | cut -f1 -d "]")
-        IMAGE_DIGEST_SHA=$IMAGE_DIGEST        
-    done
 
-    CREATE_CMD+=('-d "${IMAGE_DIGEST_SHA}"')
-    
-    if [[ "${i_flag-""}" ]]; then
-        CREATE_CMD+=('-i "${SYSDIG_IMAGE_ID}"')
+    if [[ ! "${i_flag-""}" ]]; then
+        for i in "${SCAN_IMAGES[@]}"; do
+            # Fetch the individual image id for each successful image and add it to the list of images ids
+            IMAGE_ID=$(docker image inspect "$i" -f "{{.Id}}" | cut -f2 -d ":" )
+            SYSDIG_IMAGE_ID=$IMAGE_ID
+        done
     fi
+
+    CREATE_CMD+=('-g -i "${SYSDIG_IMAGE_ID}"')
+
     if [[ "${a_flag-""}" ]]; then
         CREATE_CMD+=('-a "${SYSDIG_ANNOTATIONS}"')
     fi
@@ -355,7 +354,7 @@ start_analysis() {
 check_status_with_digest() {
     # Fetching the result of each scanned digest
     for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
-        status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/images/${IMAGE_DIGEST}/checkSummary?tag=$FULLTAG" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
+        status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
         if [ ! -z  "$status" ]; then
             break
         fi
@@ -363,7 +362,7 @@ check_status_with_digest() {
     done
  
     printf "Scan Report - \n"
-    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/images/${IMAGE_DIGEST}/checkSummary?tag=$FULLTAG"
+    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false"
 
     if [[ "${status}" = "pass" ]]; then
         printf "\nStatus is pass\n"

@@ -35,7 +35,7 @@ This script is useful for performing image analysis on locally built container i
           -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
           -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
           -t <TEXT>  [optional] Specify timeout for image analysis in seconds. Defaults to 300s. (ex: -t 500)
-          -d <TEXT>  [optional] Specify number of retries to POST analysis result to Secure backend. Defaults to 3 attempts, max 10. (ex: -d 3)
+          -d <TEXT>  [optional] Specify number of retries to POST analysis result to Secure backend. Defaults to 6 attempts, max 12. (ex: -d 6)
           -r <TEXT>  [optional] Specify number of retries to GET the scan results from Secure backend. Defaults to 100 attempts, max 300. (ex: -r 100)
           -P  [optional] Pull docker image from registry
           -V  [optional] Increase verbosity
