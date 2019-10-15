@@ -81,7 +81,7 @@ main() {
     trap 'cleanup' EXIT ERR SIGTERM
     trap 'interupt' SIGINT
 
-    if [[ "$#" -lt 1 ]]; then
+    if [[ "$#" -lt 1 ]] || ([[ "$1" != 'analyze' ]] && [[ "$1" != 'help' ]]); then
         display_usage >&2
         printf '\n\t%s\n\n' "ERROR - must specify operation ('analyze')" >&2
         exit 1
