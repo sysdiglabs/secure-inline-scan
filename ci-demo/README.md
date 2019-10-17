@@ -1,9 +1,9 @@
-# secure-inline-scan Jenkins example
+# Jenkins pipeline integration
 
-This script is useful for performing image analysis on locally built container image and post the result of the analysis to sysdig secure. The only dependency for this script is access to docker-engine, Sysdig Secure endpoint (with the API token) and network connectivity to post image analysis results.
-It can also be used in Jenkins pipeline as part of your build / scan of images.
+The following are the log outputs for a successful / failure run when used in Jenkins pipeline.
+Success / Failure status is based on image policies configured in Sysdig Secure.
 
-## Example - Success (alpine:3.7)
+## Build Success
 
     + curl -s https://raw.githubusercontent.com/sysdiglabs/secure-inline-scan/master/inline_scan.sh
     + bash -s analyze -s https://secure.sysdig.com -k <token> -P docker.io/alpine:3.7
@@ -52,7 +52,7 @@ It can also be used in Jenkins pipeline as part of your build / scan of images.
   
 
 
-## Example - Failure (node:10)
+## Build Failure
       
     + bash -s analyze -s https://secure.sysdig.com -k <token> -P docker.io/node:10
     + curl -s https://raw.githubusercontent.com/sysdiglabs/secure-inline-scan/master/inline_scan.sh
