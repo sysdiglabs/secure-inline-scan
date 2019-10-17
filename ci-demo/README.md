@@ -1,7 +1,7 @@
 # Jenkins pipeline integration
 
 The following are the log outputs for a successful / failure run when used in Jenkins pipeline.
-Success / Failure status is based on image policies configured in Sysdig Secure.
+Success / Failure status is based on exit code 0/1 from the script which in turn is predicated on image policies configured in Sysdig Secure.
 
 ## Build Success
 
