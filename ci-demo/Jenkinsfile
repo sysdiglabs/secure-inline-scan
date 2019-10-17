@@ -5,12 +5,7 @@ pipeline{
         }
     }
     environment {
-        // Successful image scan example
         IMAGE_NAME = 'docker.io/alpine:3.7'
-        
-        // Failed image scan example
-        //IMAGE_NAME = 'docker.io/node:10'
-
         SYSDIG_SECURE_URL = 'https://secure.sysdig.com'
         SYSDIG_SECURE_TOKEN = 'Dummy-Secure-Token'
     }
