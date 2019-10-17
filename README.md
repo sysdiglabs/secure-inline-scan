@@ -46,7 +46,7 @@ This script is useful for performing image analysis on locally built container i
 
 #### Analyze the image and post the results to Sysdig Secure.
       
-    $ ./inline_scan.sh analyze -s https://secure-staging.sysdig.com -k <token> -P docker.io/alpine:latest
+    $ ./inline_scan.sh analyze -s https://secure.sysdig.com -k <token> -P docker.io/alpine:latest
     
     Pulling image -- docker.io/alpine:latest
     latest: Pulling from library/alpine
