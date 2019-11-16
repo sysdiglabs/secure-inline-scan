@@ -34,7 +34,7 @@ IMAGE_DIGEST_SHA="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 MANIFEST_FILE="./manifest.json"
 POST_CALL_RETRIES=6
-GET_CALL_RETRIES=100
+GET_CALL_RETRIES=300
 
 display_usage() {
 cat << EOF
@@ -66,11 +66,7 @@ Sysdig Inline Analyzer --
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
-      -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
-      -t <TEXT>  [optional] Specify timeout for image analysis in seconds. Defaults to 300s. (ex: -t 500)
-      -d <TEXT>  [optional] Specify number of retries to POST analysis result to Secure backend. Defaults to 6 attempts, max 12. (ex: -d 6)
-      -r <TEXT>  [optional] Specify number of retries to GET the scan results from Secure backend. Defaults to 100 attempts, max 300. (ex: -r 100)
       -P  [optional] Pull docker image from registry
       -V  [optional] Increase verbosity
 
@@ -109,11 +105,7 @@ get_and_validate_analyzer_options() {
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             a  ) a_flag=true; SYSDIG_ANNOTATIONS="${OPTARG}";;
             f  ) f_flag=true; DOCKERFILE="${OPTARG}";;
-            i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
-            t  ) t_flag=true; TIMEOUT="${OPTARG}";;
-            d  ) d_flag=true; POST_CALL_RETRIES="${OPTARG}";;
-            r  ) r_flag=true; GET_CALL_RETRIES="${OPTARG}";;
             P  ) P_flag=true;;
             V  ) V_flag=true;;
             h  ) display_usage_analyzer; exit;;
@@ -140,6 +132,7 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - must provide an Sysdig Secure endpoint" >&2
         display_usage_analyzer >&2
         exit 1
+    # Need to add validation for trailing slash : /
     elif [[ "${s_flag:-}" ]] && [[ ! "${k_flag:-}" ]]; then
         printf '\n\t%s\n\n' "ERROR - must provide the Sysdig Secure API token" >&2
         display_usage_analyzer >&2
@@ -165,26 +158,6 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${m_flag:-}" ]] && [[ ! -f "${MANIFEST_FILE}" ]];then
         printf '\n\t%s\n\n' "ERROR - Manifest: ${MANIFEST_FILE} does not exist" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${t_flag:-}" ]] && [[ ! "${TIMEOUT}" =~ ^[0-9]+$ ]]; then
-        printf '\n\t%s\n\n' "ERROR - timeout must be set to a valid integer" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${d_flag:-}" ]] && [[ ! "${POST_CALL_RETRIES}" =~ ^[0-9]+$ ]]; then
-        printf '\n\t%s\n\n' "ERROR - number of POST call retries must be set to a valid integer" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${d_flag:-}" ]] && [[ "${POST_CALL_RETRIES}" -gt 12 ]]; then
-        printf '\n\t%s\n\n' "ERROR - max number of retries for POST call is 12" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${r_flag:-}" ]] && [[ ! "${GET_CALL_RETRIES}" =~ ^[0-9]+$ ]]; then
-        printf '\n\t%s\n\n' "ERROR - number of GET call retries must be set to a valid integer" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${r_flag:-}" ]] && [[ "${GET_CALL_RETRIES}" -gt 300 ]]; then
-        printf '\n\t%s\n\n' "ERROR - max number of retries for GET call is 300" >&2
         display_usage_analyzer >&2
         exit 1
     fi
@@ -265,17 +238,11 @@ prepare_inline_container() {
 }
 
 start_analysis() {
-    # Prepare commands for container creation & copying all files to container.
+    # Generate Image digest ID for given image
+    SYSDIG_IMAGE_ID=$(docker inspect "${SCAN_IMAGES[0]}" | sha256sum | sed -E "s/-//g" | sed -E "s/ //g" | tr -d "\n")
+    SYSDIG_IMAGE_DIGEST='sha256:'${SYSDIG_IMAGE_ID}
 
-    if [[ ! "${i_flag-""}" ]]; then
-        for i in "${SCAN_IMAGES[@]}"; do
-            # Fetch the individual image id for each successful image and add it to the list of images ids
-            IMAGE_ID=$(docker image inspect "$i" -f "{{.Id}}" | cut -f2 -d ":" )
-            SYSDIG_IMAGE_ID=$IMAGE_ID
-        done
-    fi
-
-    CREATE_CMD+=('-g -i "${SYSDIG_IMAGE_ID}"')
+    CREATE_CMD+=('-d "${SYSDIG_IMAGE_DIGEST}" -i "${SYSDIG_IMAGE_ID}"')
 
     if [[ "${a_flag-""}" ]]; then
         CREATE_CMD+=('-a "${SYSDIG_ANNOTATIONS}"')
@@ -348,13 +315,13 @@ start_analysis() {
 	fi
 
     FULLTAG="${SCAN_IMAGES[0]}"
-    check_status_with_digest
+    get_scan_result_by_id
 }
 
-check_status_with_digest() {
+get_scan_result_by_id() {
     # Fetching the result of each scanned digest
     for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
-        status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
+        status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
         if [ ! -z  "$status" ]; then
             break
         fi
@@ -362,7 +329,7 @@ check_status_with_digest() {
     done
  
     printf "Scan Report - \n"
-    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false"
+    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false"
 
     if [[ "${status}" = "pass" ]]; then
         printf "\nStatus is pass\n"
