@@ -342,14 +342,12 @@ post_analysis() {
 # with the image id as much as possible, instead of generating our own digest or via skopeo.
 get_repo_digest_id() {
     # Check to see if repo digest exists
-    if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
-        DIGESTS=$(docker inspect --format="{{.RepoDigests}}" "${SCAN_IMAGES[0]}")
-    fi
+    DIGESTS=$(docker inspect --format="{{.RepoDigests}}" "${SCAN_IMAGES[0]}")
 
     BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | cut -d / -f 2 | cut -d : -f 1)
 
-     if [[ ${digest} == *"${BASE_IMAGE}"* ]]; then
-        DIGEST=$(echo ${digest} | tr -d '[' | tr -d ']' | cut -d : -f 2 | cut -d '"' -f 1)
+     if [[ ${DIGESTS} == *"${BASE_IMAGE}"* ]]; then
+        DIGEST=$(echo ${DIGESTS} | tr -d '[' | tr -d ']' | cut -d : -f 2 | cut -d '"' -f 1)
         SYSDIG_IMAGE_DIGEST=$(echo "sha256:${DIGEST}")
      fi
 
