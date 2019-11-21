@@ -31,7 +31,7 @@ SYSDIG_BASE_SCANNING_URL=''
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
 SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS="foo=bar"
-IMAGE_DIGEST_SHA="sha256:123456890abcdefg"
+SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 MANIFEST_FILE="./manifest.json"
 GET_CALL_STATUS=''
@@ -57,7 +57,7 @@ Sysdig Inline Analyzer --
 
   Script for performing analysis on local docker images, utilizing the Sysdig analyzer subsystem.
   After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
-  using the -s <URL> option. This allows inline_analysis data to be persisted & utilized for reporting.
+  using the -s <URL> option. This allows inline analysis data to be persisted & utilized for reporting.
 
   Images should be built & tagged locally.
 
@@ -68,6 +68,7 @@ Sysdig Inline Analyzer --
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
+      -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -P  [optional] Pull docker image from registry
       -V  [optional] Increase verbosity
@@ -108,6 +109,7 @@ get_and_validate_analyzer_options() {
             a  ) a_flag=true; SYSDIG_ANNOTATIONS="${OPTARG}";;
             f  ) f_flag=true; DOCKERFILE="${OPTARG}";;
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
+            d  ) d_flag=true; SYSDIG_IMAGE_DIGEST="${OPTARG}";;
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
             P  ) P_flag=true;;
             V  ) V_flag=true;;
@@ -134,7 +136,7 @@ get_and_validate_analyzer_options() {
         display_usage_analyzer >&2
         exit 1
     elif [[ ! "${s_flag:-}" ]]; then
-        printf '\n\t%s\n\n' "ERROR - must provide an Sysdig Secure endpoint" >&2
+        printf '\n\t%s\n\n' "ERROR - must provide a Sysdig Secure endpoint" >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${s_flag:-}" ]] && [[ ! "${k_flag:-}" ]]; then
@@ -143,6 +145,10 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${SYSDIG_BASE_SCANNING_URL: -1}" == '/' ]]; then
         printf '\n\t%s\n\n' "ERROR - must specify Sysdig url - ${SYSDIG_BASE_SCANNING_URL} without trailing slash" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${d_flag:-}" && ${SYSDIG_IMAGE_DIGEST} != *"sha256:"* ]]; then
+        printf '\n\t%s\n\n' "ERROR - must specify a valid sha256:<digestID>: ${SYSDIG_IMAGE_DIGEST}" >&2
         display_usage_analyzer >&2
         exit 1
     elif ! curl -k -s --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/policies" > /dev/null; then
@@ -246,20 +252,22 @@ prepare_inline_container() {
 }
 
 start_analysis() {
-    get_repo_digest_id
 
-    # Generate Image digest ID for given image, if repo digest is not present
-    if [ "${SYSDIG_IMAGE_ID}" == '123456890abcdefg' ]; then
-        SYSDIG_IMAGE_ID=$(docker inspect "${SCAN_IMAGES[0]}" | sha256sum | sed -E "s/-//g" | sed -E "s/ //g" | tr -d "\n")
+    if [[ ! "${i_flag-""}" ]]; then
+        SYSDIG_IMAGE_ID=$(docker image inspect "$i" -f "{{.Id}}" | cut -f2 -d ":" )
     fi
-    SYSDIG_IMAGE_DIGEST='sha256:'${SYSDIG_IMAGE_ID}
+
+    if [[ ! "${d_flag-""}" ]]; then
+        get_repo_digest_id
+    fi
+
     FULLTAG="${SCAN_IMAGES[0]}"
 
-    get_scan_result_by_sha
+    get_scan_result_code_by_id
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
         post_analysis
     fi
-    get_image_info_by_id
+    get_scan_result_by_id_with_retries
 }
 
 post_analysis() {
@@ -288,7 +296,7 @@ post_analysis() {
 	CREATE_CMD+=('-u "${ANCHORE_ACCOUNT}"')
     else
 	printf '\n\t%s\n\n' "ERROR - unable to fetch account information from anchore-engine for specified user"
-	if [ -f /tmp/sysdig/sysdig_output.log ]; then
+	if [[ -f /tmp/sysdig/sysdig_output.log ]]; then
 	    printf '%s\n\n' "***SERVICE RESPONSE****">&2
 	    cat /tmp/sysdig/sysdig_output.log >&2
 	    printf '\n%s\n' "***END SERVICE RESPONSE****" >&2
@@ -328,31 +336,40 @@ post_analysis() {
 	    fi
 	    exit 1
 	fi
-
-	get_scan_result_by_sha
 }
 
+# This is done instead of the -g option, as we want to tie the RepoDigest value present in the image
+# with the image id as much as possible, instead of generating our own digest or via skopeo.
 get_repo_digest_id() {
     # Check to see if repo digest exists
-    if [[ "${SYSDIG_IMAGE_ID}" == '123456890abcdefg' ]]; then
+    if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
         DIGESTS=$(docker inspect --format="{{.RepoDigests}}" "${SCAN_IMAGES[0]}")
     fi
 
     BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | cut -d / -f 2 | cut -d : -f 1)
 
-    for digest in "${DIGESTS[@]}"; do
-        if [[ ${digest} == *"${BASE_IMAGE}"* ]]; then
-            DIGEST=$(echo ${digest//]} | cut -d : -f 2)
-            SYSDIG_IMAGE_ID=${DIGEST}
-        fi
-    done
+     if [[ ${digest} == *"${BASE_IMAGE}"* ]]; then
+        DIGEST=$(echo ${digest} | tr -d '[' | tr -d ']' | cut -d : -f 2 | cut -d '"' -f 1)
+        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${DIGEST}")
+     fi
+
+    # Generate Image digest ID for given image, if repo digest is not present
+    if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
+        SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | sha256sum | awk '{ print $1 }' | tr -d "\n")
+        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${SYSDIG_IMAGE_DIGEST}")
+    fi
 }
 
-get_image_info_by_id() {
+get_scan_result_code_by_id() {
+    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false")
+}
+
+get_scan_result_by_id_with_retries() {
     # Fetching the result of each scanned digest
     for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
-        status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
-        if [ ! -z  "$status" ]; then
+        get_scan_result_code_by_id
+        if [[ "${GET_CALL_STATUS}" == 200 ]]; then
+            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
             break
         fi
         echo -n "." && sleep 1
@@ -368,17 +385,6 @@ get_image_info_by_id() {
         printf "\nStatus is fail\n"
         exit 1
     fi
-}
-
-get_scan_result_by_sha() {
-    # Fetching the result of each scanned digest
-    for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
-        GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}")
-        if [ ! -z  "${GET_CALL_STATUS}" ]; then
-            break
-        fi
-        echo -n "." && sleep 1
-    done
 }
 
 save_and_copy_images() {

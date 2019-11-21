@@ -14,15 +14,15 @@ This script is useful for performing image analysis on locally built container i
         Usage: inline_scan.sh <analyze> [ OPTIONS ]
     
     $ ./inline_scan.sh analyze help
-    
-        ERROR - must provide an Sysdig Secure endpoint
+
+        ERROR - must provide a Sysdig Secure endpoint
 
 
 Sysdig Inline Analyzer --
 
   Script for performing analysis on local docker images, utilizing the Sysdig analyzer subsystem.
   After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
-  using the -s <URL> option. This allows inline_analysis data to be persisted & utilized for reporting.
+  using the -s <URL> option. This allows inline analysis data to be persisted & utilized for reporting.
 
   Images should be built & tagged locally.
 
@@ -33,6 +33,7 @@ Sysdig Inline Analyzer --
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
+      -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -P  [optional] Pull docker image from registry
       -V  [optional] Increase verbosity
