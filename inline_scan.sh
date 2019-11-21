@@ -366,6 +366,8 @@ get_scan_result_code_by_id() {
 
 get_scan_result_by_id_with_retries() {
     # Fetching the result of each scanned digest
+    SYSDIG_IMAGE_ID=$(echo "sha256:${SYSDIG_IMAGE_ID}")
+
     for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
         get_scan_result_code_by_id
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
