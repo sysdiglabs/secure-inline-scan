@@ -27,14 +27,15 @@ POLICY_BUNDLE="./policy_bundle.json"
 TIMEOUT=300
 VOLUME_PATH="/tmp/"
 # Analyzer option variable defaults
+SYSDIG_BASE_SCANNING_URL=''
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
 SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS="foo=bar"
-IMAGE_DIGEST_SHA="sha256:123456890abcdefg"
+SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 MANIFEST_FILE="./manifest.json"
-POST_CALL_RETRIES=6
-GET_CALL_RETRIES=100
+GET_CALL_STATUS=''
+GET_CALL_RETRIES=300
 
 display_usage() {
 cat << EOF
@@ -56,7 +57,7 @@ Sysdig Inline Analyzer --
 
   Script for performing analysis on local docker images, utilizing the Sysdig analyzer subsystem.
   After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
-  using the -s <URL> option. This allows inline_analysis data to be persisted & utilized for reporting.
+  using the -s <URL> option. This allows inline analysis data to be persisted & utilized for reporting.
 
   Images should be built & tagged locally.
 
@@ -67,10 +68,8 @@ Sysdig Inline Analyzer --
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
+      -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
-      -t <TEXT>  [optional] Specify timeout for image analysis in seconds. Defaults to 300s. (ex: -t 500)
-      -d <TEXT>  [optional] Specify number of retries to POST analysis result to Secure backend. Defaults to 6 attempts, max 12. (ex: -d 6)
-      -r <TEXT>  [optional] Specify number of retries to GET the scan results from Secure backend. Defaults to 100 attempts, max 300. (ex: -r 100)
       -P  [optional] Pull docker image from registry
       -V  [optional] Increase verbosity
 
@@ -105,15 +104,13 @@ get_and_validate_analyzer_options() {
     #Parse options
     while getopts ':s:k:r:u:p:a:d:f:i:m:t:PgVh' option; do
         case "${option}" in
-            s  ) s_flag=true; SYSDIG_SCANNING_URL="${OPTARG%%}"/api/scanning/v1; SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore;;
+            s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             a  ) a_flag=true; SYSDIG_ANNOTATIONS="${OPTARG}";;
             f  ) f_flag=true; DOCKERFILE="${OPTARG}";;
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
+            d  ) d_flag=true; SYSDIG_IMAGE_DIGEST="${OPTARG}";;
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
-            t  ) t_flag=true; TIMEOUT="${OPTARG}";;
-            d  ) d_flag=true; POST_CALL_RETRIES="${OPTARG}";;
-            r  ) r_flag=true; GET_CALL_RETRIES="${OPTARG}";;
             P  ) P_flag=true;;
             V  ) V_flag=true;;
             h  ) display_usage_analyzer; exit;;
@@ -123,6 +120,8 @@ get_and_validate_analyzer_options() {
     done
     shift "$((OPTIND - 1))"
 
+    SYSDIG_SCANNING_URL="${SYSDIG_BASE_SCANNING_URL}"/api/scanning/v1
+    SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore
     # Check for invalid options
     if [[ ! $(which docker) ]]; then
         printf '\n\t%s\n\n' 'ERROR - Docker is not installed or cannot be found in $PATH' >&2
@@ -137,15 +136,23 @@ get_and_validate_analyzer_options() {
         display_usage_analyzer >&2
         exit 1
     elif [[ ! "${s_flag:-}" ]]; then
-        printf '\n\t%s\n\n' "ERROR - must provide an Sysdig Secure endpoint" >&2
+        printf '\n\t%s\n\n' "ERROR - must provide a Sysdig Secure endpoint" >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${s_flag:-}" ]] && [[ ! "${k_flag:-}" ]]; then
         printf '\n\t%s\n\n' "ERROR - must provide the Sysdig Secure API token" >&2
         display_usage_analyzer >&2
         exit 1
+    elif [[ "${SYSDIG_BASE_SCANNING_URL: -1}" == '/' ]]; then
+        printf '\n\t%s\n\n' "ERROR - must specify Sysdig url - ${SYSDIG_BASE_SCANNING_URL} without trailing slash" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${d_flag:-}" && ${SYSDIG_IMAGE_DIGEST} != *"sha256:"* ]]; then
+        printf '\n\t%s\n\n' "ERROR - must specify a valid sha256:<digestID>: ${SYSDIG_IMAGE_DIGEST}" >&2
+        display_usage_analyzer >&2
+        exit 1
     elif ! curl -k -s --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL}/policies" > /dev/null; then
-        printf '\n\t%s\n\n' "ERROR - invalid combination of sysdig secure endpoint : token provided - ${SYSDIG_SCANNING_URL} : ${SYSDIG_API_TOKEN}" >&2
+        printf '\n\t%s\n\n' "ERROR - invalid combination of Sysdig secure endpoint : token provided - ${SYSDIG_SCANNING_URL} : ${SYSDIG_API_TOKEN}" >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${a_flag:-}" ]]; then
@@ -165,26 +172,6 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${m_flag:-}" ]] && [[ ! -f "${MANIFEST_FILE}" ]];then
         printf '\n\t%s\n\n' "ERROR - Manifest: ${MANIFEST_FILE} does not exist" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${t_flag:-}" ]] && [[ ! "${TIMEOUT}" =~ ^[0-9]+$ ]]; then
-        printf '\n\t%s\n\n' "ERROR - timeout must be set to a valid integer" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${d_flag:-}" ]] && [[ ! "${POST_CALL_RETRIES}" =~ ^[0-9]+$ ]]; then
-        printf '\n\t%s\n\n' "ERROR - number of POST call retries must be set to a valid integer" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${d_flag:-}" ]] && [[ "${POST_CALL_RETRIES}" -gt 12 ]]; then
-        printf '\n\t%s\n\n' "ERROR - max number of retries for POST call is 12" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${r_flag:-}" ]] && [[ ! "${GET_CALL_RETRIES}" =~ ^[0-9]+$ ]]; then
-        printf '\n\t%s\n\n' "ERROR - number of GET call retries must be set to a valid integer" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ "${r_flag:-}" ]] && [[ "${GET_CALL_RETRIES}" -gt 300 ]]; then
-        printf '\n\t%s\n\n' "ERROR - max number of retries for GET call is 300" >&2
         display_usage_analyzer >&2
         exit 1
     fi
@@ -265,17 +252,26 @@ prepare_inline_container() {
 }
 
 start_analysis() {
-    # Prepare commands for container creation & copying all files to container.
 
     if [[ ! "${i_flag-""}" ]]; then
-        for i in "${SCAN_IMAGES[@]}"; do
-            # Fetch the individual image id for each successful image and add it to the list of images ids
-            IMAGE_ID=$(docker image inspect "$i" -f "{{.Id}}" | cut -f2 -d ":" )
-            SYSDIG_IMAGE_ID=$IMAGE_ID
-        done
+        SYSDIG_IMAGE_ID=$(docker image inspect "$i" -f "{{.Id}}" | cut -f2 -d ":" )
     fi
 
-    CREATE_CMD+=('-g -i "${SYSDIG_IMAGE_ID}"')
+    if [[ ! "${d_flag-""}" ]]; then
+        get_repo_digest_id
+    fi
+
+    FULLTAG="${SCAN_IMAGES[0]}"
+
+    get_scan_result_code_by_id
+    if [[ "${GET_CALL_STATUS}" != 200 ]]; then
+        post_analysis
+    fi
+    get_scan_result_by_id_with_retries
+}
+
+post_analysis() {
+    CREATE_CMD+=('-d "${SYSDIG_IMAGE_DIGEST}" -i "${SYSDIG_IMAGE_ID}"')
 
     if [[ "${a_flag-""}" ]]; then
         CREATE_CMD+=('-a "${SYSDIG_ANNOTATIONS}"')
@@ -300,7 +296,7 @@ start_analysis() {
 	CREATE_CMD+=('-u "${ANCHORE_ACCOUNT}"')
     else
 	printf '\n\t%s\n\n' "ERROR - unable to fetch account information from anchore-engine for specified user"
-	if [ -f /tmp/sysdig/sysdig_output.log ]; then
+	if [[ -f /tmp/sysdig/sysdig_output.log ]]; then
 	    printf '%s\n\n' "***SERVICE RESPONSE****">&2
 	    cat /tmp/sysdig/sysdig_output.log >&2
 	    printf '\n%s\n' "***END SERVICE RESPONSE****" >&2
@@ -329,13 +325,7 @@ start_analysis() {
     fi
 
     # Posting the archive to the secure backend
-    for ((i=0;  i<${POST_CALL_RETRIES}; i++)); do
-        HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
-        if [ ! -z  "$HCODE" ]; then
-            break
-        fi
-        echo -n "." && sleep 2
-    done
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
 
 	if [[ "${HCODE}" != 200 ]]; then
 	    printf '\n\t%s\n\n' "ERROR - unable to POST ${analysis_archive_name} to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
@@ -346,16 +336,38 @@ start_analysis() {
 	    fi
 	    exit 1
 	fi
-
-    FULLTAG="${SCAN_IMAGES[0]}"
-    check_status_with_digest
 }
 
-check_status_with_digest() {
+# This is done instead of the -g option, as we want to tie the RepoDigest value present in the image
+# with the image id as much as possible, instead of generating our own digest or via skopeo.
+get_repo_digest_id() {
+    # Check to see if repo digest exists
+    DIGESTS=$(docker inspect --format="{{.RepoDigests}}" "${SCAN_IMAGES[0]}")
+
+    BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | cut -d / -f 2 | cut -d : -f 1)
+
+     if [[ ${DIGESTS} == *"${BASE_IMAGE}"* ]]; then
+        DIGEST=$(echo ${DIGESTS} | tr -d '[' | tr -d ']' | cut -d : -f 2 | cut -d ' ' -f 1)
+        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${DIGEST}")
+     fi
+
+    # Generate Image digest ID for given image, if repo digest is not present
+    if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
+        SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | sha256sum | awk '{ print $1 }' | tr -d "\n")
+        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${SYSDIG_IMAGE_DIGEST}")
+    fi
+}
+
+get_scan_result_code_by_id() {
+    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false")
+}
+
+get_scan_result_by_id_with_retries() {
     # Fetching the result of each scanned digest
     for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
-        status=$(curl -s -k  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
-        if [ ! -z  "$status" ]; then
+        get_scan_result_code_by_id
+        if [[ "${GET_CALL_STATUS}" == 200 ]]; then
+            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
             break
         fi
         echo -n "." && sleep 1
