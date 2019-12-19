@@ -55,7 +55,7 @@ cat << EOF
 
 Sysdig Inline Analyzer --
 
-  Script for performing analysis on local docker images, utilizing the Sysdig analyzer subsystem.
+  Script for performing analysis on local container images, utilizing the Sysdig analyzer subsystem.
   After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
   using the -s <URL> option. This allows inline analysis data to be persisted & utilized for reporting.
 
@@ -63,14 +63,14 @@ Sysdig Inline Analyzer --
 
     Usage: ${0##*/} analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
-      -s <TEXT>  [required] URL to Sysdig Secure URL (ex: -s 'https://secure-sysdig.com')
+      -s <TEXT>  [required] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local')
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
-      -P  [optional] Pull docker image from registry
+      -P  [optional] Pull container image from registry
       -V  [optional] Increase verbosity
 
 EOF
