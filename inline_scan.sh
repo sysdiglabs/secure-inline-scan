@@ -27,7 +27,7 @@ POLICY_BUNDLE="./policy_bundle.json"
 TIMEOUT=300
 VOLUME_PATH="/tmp/"
 # Analyzer option variable defaults
-SYSDIG_BASE_SCANNING_URL=''
+SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
 SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS="foo=bar"
@@ -61,10 +61,11 @@ Sysdig Inline Analyzer --
 
   Images should be built & tagged locally.
 
-    Usage: ${0##*/} analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
+    Usage: ${0##*/} analyze -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
-      -s <TEXT>  [required] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local')
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
+      -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local'). 
+                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
@@ -102,10 +103,10 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':s:k:r:u:p:a:d:f:i:m:t:PgVh' option; do
+    while getopts ':k:s:r:u:p:a:d:f:i:m:t:PgVh' option; do
         case "${option}" in
-            s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
+            s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
             a  ) a_flag=true; SYSDIG_ANNOTATIONS="${OPTARG}";;
             f  ) f_flag=true; DOCKERFILE="${OPTARG}";;
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
@@ -133,10 +134,6 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${#@}" -lt 1 ]]; then
         printf '\n\t%s\n\n' "ERROR - must specify an image to analyze" >&2
-        display_usage_analyzer >&2
-        exit 1
-    elif [[ ! "${s_flag:-}" ]]; then
-        printf '\n\t%s\n\n' "ERROR - must provide a Sysdig Secure endpoint" >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${s_flag:-}" ]] && [[ ! "${k_flag:-}" ]]; then

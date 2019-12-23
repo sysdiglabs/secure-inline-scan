@@ -28,8 +28,9 @@ Sysdig Inline Analyzer --
 
     Usage: inline_scan.sh analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
-      -s <TEXT>  [required] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local')
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
+      -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local'). 
+                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
@@ -61,7 +62,7 @@ Sysdig Inline Analyzer --
     [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/alpine:latest fulldigest=docker.io/alpine@sha256:72c42ed48c3a2db31b7dafe17d275b634664a708d901ec9fd57b1529280f01fb
      Analysis complete!
     
-    Sending analysis archive to https://secure-staging.sysdig.com/api/scanning/v1
+    Sending analysis archive to https://secure.sysdig.com/api/scanning/v1
     Scan Report - 
     {
       "imageDigest": "sha256:72c42ed48c3a2db31b7dafe17d275b634664a708d901ec9fd57b1529280f01fb",
