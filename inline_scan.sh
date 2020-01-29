@@ -37,6 +37,18 @@ MANIFEST_FILE="./manifest.json"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
 
+if command -v sha256sum >/dev/null 2>&1; then
+  SHASUM_COMMAND="sha256sum"
+else
+  if command -v shasum >/dev/null 2>&1; then
+    SHASUM_COMMAND="shasum -a 256"
+  else
+    printf "ERROR: sha256sum or shasum command is required but missing\n"  
+    exit 1
+  fi
+fi
+
+
 display_usage() {
 cat << EOF
 
@@ -63,7 +75,7 @@ Sysdig Inline Analyzer --
 
     Usage: ${0##*/} analyze -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
-      -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
+      -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
       -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local'). 
                  If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
@@ -350,7 +362,7 @@ get_repo_digest_id() {
 
     # Generate Image digest ID for given image, if repo digest is not present
     if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
-        SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | sha256sum | awk '{ print $1 }' | tr -d "\n")
+        SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | ${SHASUM_COMMAND} | awk '{ print $1 }' | tr -d "\n")
         SYSDIG_IMAGE_DIGEST=$(echo "sha256:${SYSDIG_IMAGE_DIGEST}")
     fi
 }
