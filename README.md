@@ -2,6 +2,13 @@
 
 This script is useful for performing image analysis on locally built container image and post the result of the analysis to [Sysdig Secure](https://sysdig.com/products/kubernetes-security/). The only dependency for this script is access to docker-engine, Sysdig Secure endpoint (with the API token) and network connectivity to post image analysis results.
 
+Here are examples of using the inline scanner in different pipelines.
+
+*   [Gitlab](https://sysdig.com/blog/gitlab-ci-cd-image-scanning/)
+*   [Github Actions](https://sysdig.com/blog/image-scanning-github-actions/)
+*   [AWS Codepipeline](https://sysdig.com/blog/image-scanning-aws-codepipeline-codebuild/)
+*   [Azure Pipelines](https://sysdig.com/blog/image-scanning-azure-pipelines/)
+
 ## Usage
 
     $ ./inline_scan.sh help
