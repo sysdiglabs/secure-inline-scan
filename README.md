@@ -8,6 +8,7 @@ Here are examples of using the inline scanner in different pipelines.
 *   [Github Actions](https://sysdig.com/blog/image-scanning-github-actions/)
 *   [AWS Codepipeline](https://sysdig.com/blog/image-scanning-aws-codepipeline-codebuild/)
 *   [Azure Pipelines](https://sysdig.com/blog/image-scanning-azure-pipelines/)
+*   [CircleCI](https://sysdig.com/blog/image-scanning-circleci/)
 
 ## Usage
 
