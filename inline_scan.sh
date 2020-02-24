@@ -36,6 +36,7 @@ SYSDIG_IMAGE_ID="123456890abcdefg"
 MANIFEST_FILE="./manifest.json"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
+DETAIL=false
 
 if command -v sha256sum >/dev/null 2>&1; then
   SHASUM_COMMAND="sha256sum"
@@ -186,6 +187,7 @@ get_and_validate_analyzer_options() {
     fi
 
     if [[ "${V_flag:-}" ]]; then
+        DETAIL=true
         set -x
     fi
 
@@ -368,7 +370,7 @@ get_repo_digest_id() {
 }
 
 get_scan_result_code_by_id() {
-    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false")
+    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}")
 }
 
 get_scan_result_by_id_with_retries() {
@@ -376,14 +378,14 @@ get_scan_result_by_id_with_retries() {
     for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
         get_scan_result_code_by_id
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
-            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
+            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
             break
         fi
         echo -n "." && sleep 1
     done
  
     printf "Scan Report - \n"
-    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=false"
+    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}"
 
     if [[ "${status}" = "pass" ]]; then
         printf "\nStatus is pass\n"
