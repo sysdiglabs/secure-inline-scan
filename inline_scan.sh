@@ -33,6 +33,7 @@ SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS="foo=bar"
 SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
+SYSDIG_API_TOKEN="test-token"
 MANIFEST_FILE="./manifest.json"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
