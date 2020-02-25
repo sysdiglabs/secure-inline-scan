@@ -86,6 +86,7 @@ Sysdig Inline Analyzer --
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -P  [optional] Pull container image from registry
       -V  [optional] Increase verbosity
+      -R  [optional] Download scan result pdf report
 
 EOF
 }
@@ -116,7 +117,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:r:u:p:a:d:f:i:m:t:PgVh' option; do
+    while getopts ':k:s:u:p:a:d:f:i:m:t:PgVRh' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
@@ -127,6 +128,7 @@ get_and_validate_analyzer_options() {
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
             P  ) P_flag=true;;
             V  ) V_flag=true;;
+            R  ) R_flag=true;;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
             :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
@@ -387,13 +389,25 @@ get_scan_result_by_id_with_retries() {
     printf "Scan Report - \n"
     curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}"
 
+    if [[ "${R_flag-""}" ]]; then
+        printf "\nDownloading PDF Scan result for image id: ${SYSDIG_IMAGE_ID} and digest: ${SYSDIG_IMAGE_DIGEST}"
+        get_scan_result_pdf_by_digest
+    fi
+
     if [[ "${status}" = "pass" ]]; then
         printf "\nStatus is pass\n"
         exit 0
     else
         printf "\nStatus is fail\n"
+        if [[ ! "${V_flag-""}"  && ! "${R_flag-""}" ]]; then
+            printf "For detailed reasons on fail status, run the script with -R or -V options\n"
+        fi
         exit 1
     fi
+}
+
+get_scan_result_pdf_by_digest() {
+    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=$FULLTAG"
 }
 
 save_and_copy_images() {
