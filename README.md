@@ -98,5 +98,5 @@ Here are examples of using the inline scanner in different pipelines.
     
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
-#### Sample scan result PDF when running it with -R option
+#### Scan Result PDF when running the script with -R option
     ![Screenshot](https://user-images.githubusercontent.com/39659445/75296350-c6a23a00-57e1-11ea-9a55-d1d0b8b7ac1d.png "Scan result PDF")
