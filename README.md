@@ -74,7 +74,7 @@ Here are examples of using the inline scanner in different pipelines.
     [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/alpine:3.10 fulldigest=docker.io/alpine@sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f
      Analysis complete!
     
-    Sending analysis archive to https://secure-staging2.sysdig.com/api/scanning/v1
+    Sending analysis archive to https://secure.sysdig.com/api/scanning/v1
     Scan Report - 
     [
       {
@@ -93,4 +93,10 @@ Here are examples of using the inline scanner in different pipelines.
     
     Status is pass
     
+    View the full result @ https://secure.sysdig.com/#/scanning/scan-results/docker.io%2Falpine%3A3.10/sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f/summaries
+    You can also run the script with -R or -V options for more info.
+    
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
+
+#### Sample scan result PDF when running it with -R option
+    ![Screenshot](https://user-images.githubusercontent.com/39659445/75296350-c6a23a00-57e1-11ea-9a55-d1d0b8b7ac1d.png "Scan result PDF")

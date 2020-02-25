@@ -391,19 +391,38 @@ get_scan_result_by_id_with_retries() {
     curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}"
 
     if [[ "${R_flag-""}" ]]; then
-        printf "\nDownloading PDF Scan result for image id: ${SYSDIG_IMAGE_ID} and digest: ${SYSDIG_IMAGE_DIGEST}"
+        printf "\nDownloading PDF Scan result for image id: ${SYSDIG_IMAGE_ID} / digest: ${SYSDIG_IMAGE_DIGEST}"
         get_scan_result_pdf_by_digest
     fi
 
     if [[ "${status}" = "pass" ]]; then
         printf "\nStatus is pass\n"
+        print_scan_result_summary_message
         exit 0
     else
         printf "\nStatus is fail\n"
-        if [[ ! "${V_flag-""}"  && ! "${R_flag-""}" ]]; then
-            printf "For detailed reasons on fail status, run the script with -R or -V options\n"
-        fi
+        print_scan_result_summary_message
         exit 1
+    fi
+}
+
+urlencode() {
+    # urlencode <string>
+    local length="${#1}"
+    for (( i = 0; i < length; i++ )); do
+        local c="${1:i:1}"
+        case $c in
+            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            *) printf '%%%02X' "'$c"
+        esac
+    done
+}
+
+print_scan_result_summary_message() {
+    if [[ ! "${V_flag-""}"  && ! "${R_flag-""}" ]]; then
+        ENCODED_TAG=$(urlencode ${FULLTAG})
+        echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+        printf "You can also run the script with -R or -V options for more info.\n"
     fi
 }
 

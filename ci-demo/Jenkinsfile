@@ -31,5 +31,9 @@ pipeline{
                 sh "curl -s https://raw.githubusercontent.com/sysdiglabs/secure-inline-scan/master/inline_scan.sh | bash -s analyze -s ${SYSDIG_SECURE_URL} -k ${SYSDIG_SECURE_TOKEN} -P ${IMAGE_NAME}}"
             }
         }
+    post {
+        always {
+            archiveArtifacts artifacts: '*.pdf', onlyIfSuccessful: true
+        }
     }
 }
