@@ -35,6 +35,7 @@ SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 SYSDIG_API_TOKEN="test-token"
 MANIFEST_FILE="./manifest.json"
+PDF_DIRECTORY=$(echo $PWD)
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
 DETAIL=false
@@ -87,7 +88,7 @@ Sysdig Inline Analyzer --
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -P  [optional] Pull container image from registry
       -V  [optional] Increase verbosity
-      -R  [optional] Download scan result pdf report
+      -R <PATH>  [optional] Download scan result pdf in a specified local directory (ex: -R /staging/reports)
 
 EOF
 }
@@ -118,7 +119,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:u:p:a:d:f:i:m:t:PgVRh' option; do
+    while getopts ':k:s:u:p:a:d:f:i:m:t:R:PgVh' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
@@ -129,7 +130,7 @@ get_and_validate_analyzer_options() {
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
             P  ) P_flag=true;;
             V  ) V_flag=true;;
-            R  ) R_flag=true;;
+            R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
             :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
@@ -185,6 +186,14 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${m_flag:-}" ]] && [[ ! -f "${MANIFEST_FILE}" ]];then
         printf '\n\t%s\n\n' "ERROR - Manifest: ${MANIFEST_FILE} does not exist" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${R_flag:-}" ]] && [[ ! -d "${PDF_DIRECTORY}" ]];then
+        printf '\n\t%s\n\n' "ERROR - Directory: ${PDF_DIRECTORY} does not exist" >&2
+        display_usage_analyzer >&2
+        exit 1
+    elif [[ "${PDF_DIRECTORY: -1}" == '/' ]]; then
+        printf '\n\t%s\n\n' "ERROR - must specify file path - ${PDF_DIRECTORY} without trailing slash" >&2
         display_usage_analyzer >&2
         exit 1
     fi
@@ -427,7 +436,7 @@ print_scan_result_summary_message() {
 }
 
 get_scan_result_pdf_by_digest() {
-    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=$FULLTAG"
+    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=$FULLTAG"
 }
 
 save_and_copy_images() {
