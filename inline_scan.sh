@@ -429,14 +429,19 @@ urlencode() {
 
 print_scan_result_summary_message() {
     if [[ ! "${V_flag-""}"  && ! "${R_flag-""}" ]]; then
+        if [[ ! "${status}" = "pass" ]]; then
+            echo "Result Details: "
+            curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=true"
+        fi
         ENCODED_TAG=$(urlencode ${FULLTAG})
         echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
-        printf "You can also run the script with -R or -V options for more info.\n"
+        printf "You can also run the script with -R option for more info.\n"
     fi
 }
 
 get_scan_result_pdf_by_digest() {
-    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=$FULLTAG"
+    date_format=$(date +'%m-%d-%Y')
+    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=$FULLTAG"
 }
 
 save_and_copy_images() {
