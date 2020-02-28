@@ -94,7 +94,7 @@ Here are examples of using the inline scanner in different pipelines.
     Status is pass
     
     View the full result @ https://secure.sysdig.com/#/scanning/scan-results/docker.io%2Falpine%3A3.10/sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f/summaries
-    You can also run the script with -R or -V options for more info.
+    You can also run the script with -R option for more info.
     
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
