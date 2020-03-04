@@ -108,4 +108,4 @@ Here are examples of using the inline scanner in different pipelines.
     Internet Access to post results to Sysdig Secure
     
 #### Scan Result PDF when running the script with -R option
-    ![Screenshot](https://user-images.githubusercontent.com/39659445/75296350-c6a23a00-57e1-11ea-9a55-d1d0b8b7ac1d.png "Scan result PDF")    
+    [2020-03-04-node:7-scan-result.pdf](https://github.com/sysdiglabs/secure-inline-scan/files/4289847/2020-03-04-node.7-scan-result.pdf)    
