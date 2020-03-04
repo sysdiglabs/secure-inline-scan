@@ -23,20 +23,20 @@ Here are examples of using the inline scanner in different pipelines.
     
     $ ./inline_scan.sh analyze help
 
-        ERROR - must provide a Sysdig Secure endpoint
+	ERROR - invalid combination of Sysdig secure endpoint : token provided - https://secure.sysdig.com/api/scanning/v1 : test-token
 
 
-Sysdig Inline Analyzer --
+    Sysdig Inline Analyzer --
 
-  Script for performing analysis on local container images, utilizing the Sysdig analyzer subsystem.
-  After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
-  using the -s <URL> option. This allows inline analysis data to be persisted & utilized for reporting.
+    Script for performing analysis on local container images, utilizing the Sysdig analyzer subsystem.
+    After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
+    using the -s <URL> option. This allows inline analysis data to be persisted & utilized for reporting.
 
-  Images should be built & tagged locally.
+    Images should be built & tagged locally.
 
     Usage: inline_scan.sh analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
-      -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k '924c7ddc-4c09-4d22-bd52-2f7db22f3066')
+      -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
       -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local'). 
                  If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
@@ -46,6 +46,8 @@ Sysdig Inline Analyzer --
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
       -P  [optional] Pull container image from registry
       -V  [optional] Increase verbosity
+      -R  [optional] Download scan result pdf report
+
 
   
 
@@ -54,51 +56,56 @@ Sysdig Inline Analyzer --
 
 #### Analyze the image and post the results to Sysdig Secure.
       
-    $ ./inline_scan.sh analyze -s https://secure.sysdig.com -k <token> -P docker.io/alpine:latest
+    $ ./inline_scan.sh analyze -s https://secure.sysdig.com -k <token> -P docker.io/alpine:3.10
     
-    Pulling image -- docker.io/alpine:latest
-    latest: Pulling from library/alpine
-    Digest: sha256:72c42ed48c3a2db31b7dafe17d275b634664a708d901ec9fd57b1529280f01fb
-    Status: Downloaded newer image for alpine:latest
-    docker.io/library/alpine:latest
+    Pulling image -- docker.io/alpine:3.10
+    3.10: Pulling from library/alpine
+    
+    4167d3e14976: Pull complete 
+    Digest: sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f
+    Status: Downloaded newer image for alpine:3.10
+    docker.io/library/alpine:3.10
     
     Using local image for scanning -- docker.io/anchore/inline-scan:v0.5.0
-    Saving docker.io/alpine:latest for local analysis
-    Successfully prepared image archive -- /tmp/sysdig/alpine:latest.tar
+    Saving docker.io/alpine:3.10 for local analysis
+    Successfully prepared image archive -- /tmp/sysdig/alpine:3.10.tar
     
-    Analyzing docker.io/alpine:latest...
-    [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/alpine:latest fulldigest=docker.io/alpine@sha256:72c42ed48c3a2db31b7dafe17d275b634664a708d901ec9fd57b1529280f01fb
+    Analyzing docker.io/alpine:3.10...
+    [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/alpine:3.10 fulldigest=docker.io/alpine@sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f
      Analysis complete!
     
     Sending analysis archive to https://secure.sysdig.com/api/scanning/v1
     Scan Report - 
-    {
-      "imageDigest": "sha256:72c42ed48c3a2db31b7dafe17d275b634664a708d901ec9fd57b1529280f01fb",
-      "at": "2019-10-10T21:48:15Z",
-      "tag": "docker.io/alpine:latest",
-      "status": "pass",
-      "policyBundleId": "default",
-      "finalAction": "warn",
-      "finalActionReason": "policy_evaluation",
-      "nStops": 0,
-      "nWarns": 1,
-      "policies": [
-       {
-        "policyId": "default",
-        "policyName": "DefaultPolicy",
-        "nStops": 0,
-        "nWarns": 1,
-        "rules": [
-         {
-          "gate": "dockerfile",
-          "trigger": "instruction",
-          "nStops": 0,
-          "nWarns": 1
-         }
-        ]
-       }
-      ]
-     }
+    [
+      {
+        "sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f": {
+          "docker.io/alpine:3.10": [
+            {
+              "detail": {},
+              "last_evaluation": "2020-02-25T01:18:31Z",
+              "policyId": "default",
+              "status": "pass"
+            }
+          ]
+        }
+      }
+    ]
+    
     Status is pass
     
-    Cleaning up docker container: 8afa781af45748a1ec4dcf02e87cf03d89d69c9b3f1e4adcbc1d684cabd106ff
+    View the full result @ https://secure.sysdig.com/#/scanning/scan-results/docker.io%2Falpine%3A3.10/sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f/summaries
+    You can also run the script with -R option for more info.
+    
+    Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
+
+#### Minimum Requirements
+    Sysdig Secure v2.5.0
+    
+    Anchore Engine v0.5.0
+    
+    Docker client access to pull images from Dockerhub
+    
+    Internet Access to post results to Sysdig Secure
+    
+#### Scan Result PDF when running the script with -R option
+    ![Screenshot](https://user-images.githubusercontent.com/39659445/75296350-c6a23a00-57e1-11ea-9a55-d1d0b8b7ac1d.png "Scan result PDF")    

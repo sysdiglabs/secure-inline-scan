@@ -21,7 +21,7 @@ Success / Failure status is based on exit code 0/1 from the script which in turn
     [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/alpine:3.7 fulldigest=docker.io/alpine@sha256:6d1ef012b5674ad8a127ecfa9b5e6f5178d171b90ee462846974177fd9bdd39f
      Analysis complete!
     
-    Sending analysis archive to https://secure-staging2.sysdig.com/api/scanning/v1
+    Sending analysis archive to https://secure.sysdig.com/api/scanning/v1
     Scan Report - 
     [
       {
@@ -39,6 +39,9 @@ Success / Failure status is based on exit code 0/1 from the script which in turn
     ]
     
     Status is pass
+    
+    View the full result @ https://secure.sysdig.com/#/scanning/scan-results/docker.io%2Falpine%3A3.7/sha256:6d1ef012b5674ad8a127ecfa9b5e6f5178d171b90ee462846974177fd9bdd39f/summaries
+    You can also run the script with -R option for more info.
     
     Cleaning up docker container: 484bc6eb987bba77ec12473dc83bcdcd8db93b24d40c9450270bcba2f319145e
     [Pipeline] }
@@ -70,7 +73,7 @@ Success / Failure status is based on exit code 0/1 from the script which in turn
     [MainThread] [anchore_manager.cli.analyzers/exec()] [INFO] using fulltag=docker.io/node:10 fulldigest=docker.io/node@sha256:636ef87129d69cb758968d81123a1d15a521a24eeab35c2d63ebb41c0f87b0ad
      Analysis complete!
     
-    Sending analysis archive to https://secure-staging2.sysdig.com/api/scanning/v1
+    Sending analysis archive to https://secure.sysdig.com/api/scanning/v1
     Scan Report - 
     [
       {
@@ -88,6 +91,9 @@ Success / Failure status is based on exit code 0/1 from the script which in turn
     ]
     
     Status is fail
+    
+    View the full result @ https://secure.sysdig.com/#/scanning/scan-results/docker.io%2Fnode%3A10/sha256:636ef87129d69cb758968d81123a1d15a521a24eeab35c2d63ebb41c0f87b0ad/summaries
+    You can also run the script with -R option for more info.
     
     Cleaning up docker container: 28e713d7c1fd8e832f92e2ea8b5d9175b0b90400ec2ef01c982acd62f0a536e0
     [Pipeline] }
