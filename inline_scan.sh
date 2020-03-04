@@ -119,7 +119,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:u:p:a:d:f:i:m:t:R:PgVh' option; do
+    while getopts ':k:s:a:d:f:i:m:R:PVh' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;

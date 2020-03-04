@@ -34,7 +34,7 @@ Here are examples of using the inline scanner in different pipelines.
 
     Images should be built & tagged locally.
 
-    Usage: inline_scan.sh analyze -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
+    Usage: inline_scan.sh analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
       -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local'). 
