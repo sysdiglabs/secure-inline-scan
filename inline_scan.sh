@@ -440,7 +440,7 @@ print_scan_result_summary_message() {
 }
 
 get_scan_result_pdf_by_digest() {
-    date_format=$(date +'%m-%d-%Y')
+    date_format=$(date +'%Y-%m-%d')
     curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=$FULLTAG"
 }
 
