@@ -9,6 +9,7 @@ Here are examples of using the inline scanner in different pipelines.
 *   [AWS Codepipeline](https://sysdig.com/blog/image-scanning-aws-codepipeline-codebuild/)
 *   [Azure Pipelines](https://sysdig.com/blog/image-scanning-azure-pipelines/)
 *   [CircleCI](https://sysdig.com/blog/image-scanning-circleci/)
+*   [Jenkins](https://github.com/sysdiglabs/secure-inline-scan/tree/master/ci-demo)
 
 ## Usage
 
