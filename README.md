@@ -12,8 +12,11 @@ Here are examples of using the inline scanner in different pipelines.
 
 ## Usage
 
-    $ ./inline_scan.sh help
+On the host via the script
+
     
+    $ ./inline_scan.sh help
+       
     Sysdig Inline Scanner/Analyzer --
     
       Wrapper script for performing vulnerability scan or image analysis on local container images, utilizing the Sysdig inline_scan container.
@@ -47,6 +50,12 @@ Here are examples of using the inline scanner in different pipelines.
       -P  [optional] Pull container image from registry
       -V  [optional] Increase verbosity
       -R  [optional] Download scan result pdf report
+
+Using docker
+
+
+    $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock sysdiglabs/secure_inline_scan:latest /bin/inline_scan analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
+       
 
 
   
@@ -98,6 +107,9 @@ Here are examples of using the inline scanner in different pipelines.
     
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
+#### Produce a PDF report of the scan results using the -R option
+    ![Alt text](scan-results.jpg?raw=true "Scan Results Report (in PDF)")    
+
 #### Minimum Requirements
     Sysdig Secure v2.5.0
     
@@ -106,6 +118,8 @@ Here are examples of using the inline scanner in different pipelines.
     Docker client access to pull images from Dockerhub
     
     Internet Access to post results to Sysdig Secure
-    
-#### Scan Result PDF when running the script with -R option
-    ![Screenshot](https://user-images.githubusercontent.com/39659445/75296350-c6a23a00-57e1-11ea-9a55-d1d0b8b7ac1d.png "Scan result PDF")    
+
+**Note**: For Airgapped environments, we suggest the following:
+* docker pull docker.io/anchore/inline-scan:0.5.2
+* docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container) 
+* Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning

@@ -1,1 +1,3 @@
 .idea/*
+jenkins-upload-s3.sh
+scan-results.jpg
