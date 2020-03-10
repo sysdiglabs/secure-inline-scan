@@ -10,6 +10,17 @@ Here are examples of using the inline scanner in different pipelines.
 *   [Azure Pipelines](https://sysdig.com/blog/image-scanning-azure-pipelines/)
 *   [CircleCI](https://sysdig.com/blog/image-scanning-circleci/)
 
+## Minimum Requirements
+* Sysdig Secure v2.5.0
+* Anchore Engine v0.5.0
+* Docker client access to pull images from Dockerhub
+* Internet Access to post results to Sysdig Secure
+
+**Note**: For Airgapped environments, we suggest the following:
+* docker pull docker.io/anchore/inline-scan:v0.5.2
+* docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container) 
+* Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
+
 ## Usage
 
 On the host via the script
@@ -108,18 +119,4 @@ Using docker
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
 #### Produce a PDF report of the scan results using the -R option
-<img width="1589" alt="scan-results pjg" src="https://user-images.githubusercontent.com/48695865/76269075-8dc88300-622d-11ea-9537-79b3c70596be.png"> 	   
-
-#### Minimum Requirements
-    Sysdig Secure v2.5.0
-    
-    Anchore Engine v0.5.0
-    
-    Docker client access to pull images from Dockerhub
-    
-    Internet Access to post results to Sysdig Secure
-
-**Note**: For Airgapped environments, we suggest the following:
-* docker pull docker.io/anchore/inline-scan:v0.5.2
-* docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container) 
-* Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
+<img width="1589" alt="scan-results pjg" src="https://user-images.githubusercontent.com/48695865/76269075-8dc88300-622d-11ea-9537-79b3c70596be.png">
