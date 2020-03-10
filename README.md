@@ -10,10 +10,24 @@ Here are examples of using the inline scanner in different pipelines.
 *   [Azure Pipelines](https://sysdig.com/blog/image-scanning-azure-pipelines/)
 *   [CircleCI](https://sysdig.com/blog/image-scanning-circleci/)
 
+## Minimum Requirements
+* Sysdig Secure v2.5.0
+* Anchore Engine v0.5.0
+* Docker client access to pull images from Dockerhub
+* Internet Access to post results to Sysdig Secure
+
+**Note**: For Airgapped environments, we suggest the following:
+* docker pull docker.io/anchore/inline-scan:v0.5.2
+* docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container) 
+* Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
+
 ## Usage
 
-    $ ./inline_scan.sh help
+On the host via the script
+
     
+    $ ./inline_scan.sh help
+       
     Sysdig Inline Scanner/Analyzer --
     
       Wrapper script for performing vulnerability scan or image analysis on local container images, utilizing the Sysdig inline_scan container.
@@ -48,10 +62,10 @@ Here are examples of using the inline scanner in different pipelines.
       -V  [optional] Increase verbosity
       -R  [optional] Download scan result pdf report
 
+Using docker
 
-  
-
-
+    $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock sysdiglabs/secure_inline_scan:latest /bin/inline_scan analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
+       
 ## Example
 
 #### Analyze the image and post the results to Sysdig Secure.
@@ -94,18 +108,10 @@ Here are examples of using the inline scanner in different pipelines.
     Status is pass
     
     View the full result @ https://secure.sysdig.com/#/scanning/scan-results/docker.io%2Falpine%3A3.10/sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f/summaries
-    You can also run the script with -R option for more info.
+    PDF report of the scan results can be generated with -R option.
     
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
-#### Minimum Requirements
-    Sysdig Secure v2.5.0
-    
-    Anchore Engine v0.5.0
-    
-    Docker client access to pull images from Dockerhub
-    
-    Internet Access to post results to Sysdig Secure
-    
-#### Scan Result PDF when running the script with -R option
-    ![Screenshot](https://user-images.githubusercontent.com/39659445/75296350-c6a23a00-57e1-11ea-9a55-d1d0b8b7ac1d.png "Scan result PDF")    
+##### Sample scan results report in PDF format
+<img width="1377" alt="node-scan-result-pg1" src="https://user-images.githubusercontent.com/39659445/76037687-8dae4780-5efc-11ea-9f26-9347a5c4334c.png">
+

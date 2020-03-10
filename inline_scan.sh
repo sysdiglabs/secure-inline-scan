@@ -8,7 +8,7 @@ set -eou pipefail
 
 # If using a locally built stateless CI container, export SYSDIG_CI_IMAGE=<image_name>.
 # This will override the image name from Dockerhub.
-INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.5.0}"
+INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.5.2}"
 DOCKER_NAME="${RANDOM:-temp}-inline-anchore-engine"
 DOCKER_ID=""
 ANALYZE=false
@@ -46,7 +46,7 @@ else
   if command -v shasum >/dev/null 2>&1; then
     SHASUM_COMMAND="shasum -a 256"
   else
-    printf "ERROR: sha256sum or shasum command is required but missing\n"  
+    printf "ERROR: sha256sum or shasum command is required but missing\n"
     exit 1
   fi
 fi
@@ -79,7 +79,7 @@ Sysdig Inline Analyzer --
     Usage: ${0##*/} analyze -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-      -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local'). 
+      -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
                  If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
@@ -395,7 +395,7 @@ get_scan_result_by_id_with_retries() {
         fi
         echo -n "." && sleep 1
     done
- 
+
     printf "Scan Report - \n"
     curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}"
 
@@ -435,7 +435,7 @@ print_scan_result_summary_message() {
         fi
         ENCODED_TAG=$(urlencode ${FULLTAG})
         echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
-        printf "You can also run the script with -R option for more info.\n"
+        printf "PDF report of the scan results can be generated with -R option.\n"
     fi
 }
 
