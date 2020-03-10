@@ -435,7 +435,7 @@ print_scan_result_summary_message() {
         fi
         ENCODED_TAG=$(urlencode ${FULLTAG})
         echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
-        printf "A PDF report of the scan results can be generated with -R option.\n"
+        printf "PDF report of the scan results can be generated with -R option.\n"
     fi
 }
 
