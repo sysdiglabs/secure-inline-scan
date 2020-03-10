@@ -64,14 +64,8 @@ On the host via the script
 
 Using docker
 
-
     $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock sysdiglabs/secure_inline_scan:latest /bin/inline_scan analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
        
-
-
-  
-
-
 ## Example
 
 #### Analyze the image and post the results to Sysdig Secure.
@@ -114,9 +108,10 @@ Using docker
     Status is pass
     
     View the full result @ https://secure.sysdig.com/#/scanning/scan-results/docker.io%2Falpine%3A3.10/sha256:7c3773f7bcc969f03f8f653910001d99a9d324b4b9caa008846ad2c3089f5a5f/summaries
-    You can also run the script with -R option for more info.
+    PDF report of the scan results can be generated with -R option.
     
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
 #### Produce a PDF report of the scan results using the -R option
-<img width="1589" alt="scan-results pjg" src="https://user-images.githubusercontent.com/48695865/76269075-8dc88300-622d-11ea-9537-79b3c70596be.png">
+<img width="1377" alt="node-scan-result-pg1" src="https://user-images.githubusercontent.com/39659445/76037687-8dae4780-5efc-11ea-9f26-9347a5c4334c.png">
+
