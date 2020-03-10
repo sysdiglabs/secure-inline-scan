@@ -108,7 +108,7 @@ Using docker
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
 #### Produce a PDF report of the scan results using the -R option
-    ![image](scan-results.jpg) 	   
+<img width="1589" alt="scan-results pjg" src="https://user-images.githubusercontent.com/48695865/76269075-8dc88300-622d-11ea-9537-79b3c70596be.png"> 	   
 
 #### Minimum Requirements
     Sysdig Secure v2.5.0
