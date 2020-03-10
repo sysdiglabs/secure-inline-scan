@@ -108,7 +108,7 @@ Using docker
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
 #### Produce a PDF report of the scan results using the -R option
-    ![Alt text](scan-results.jpg?raw=true "Scan Results Report (in PDF)")    
+    ![image](scan-results.jpg) 	   
 
 #### Minimum Requirements
     Sysdig Secure v2.5.0
@@ -120,6 +120,6 @@ Using docker
     Internet Access to post results to Sysdig Secure
 
 **Note**: For Airgapped environments, we suggest the following:
-* docker pull docker.io/anchore/inline-scan:0.5.2
+* docker pull docker.io/anchore/inline-scan:v0.5.2
 * docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container) 
 * Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
