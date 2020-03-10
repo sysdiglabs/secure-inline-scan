@@ -8,7 +8,7 @@ set -eou pipefail
 
 # If using a locally built stateless CI container, export SYSDIG_CI_IMAGE=<image_name>.
 # This will override the image name from Dockerhub.
-INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:0.5.2}"
+INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.5.2}"
 DOCKER_NAME="${RANDOM:-temp}-inline-anchore-engine"
 DOCKER_ID=""
 ANALYZE=false
