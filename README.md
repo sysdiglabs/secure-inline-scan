@@ -112,6 +112,6 @@ Using docker
     
     Cleaning up docker container: 27a80f8606e3b577bd2cab4601c79d92db490034d48d8d29f328c51cbad6e604
 
-#### Produce a PDF report of the scan results using the -R option
+##### Sample scan results report in PDF format
 <img width="1377" alt="node-scan-result-pg1" src="https://user-images.githubusercontent.com/39659445/76037687-8dae4780-5efc-11ea-9f26-9347a5c4334c.png">
 
