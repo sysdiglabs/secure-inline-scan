@@ -434,7 +434,7 @@ print_scan_result_summary_message() {
             curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=true"
         fi
         ENCODED_TAG=$(urlencode ${FULLTAG})
-        echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+        echo "View the full result @ ${SYSDIG_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
         printf "PDF report of the scan results can be generated with -R option.\n"
     fi
 }
