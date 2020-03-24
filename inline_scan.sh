@@ -370,7 +370,7 @@ get_repo_digest_id() {
     BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | cut -d / -f 2 | cut -d : -f 1)
 
      if [[ ${DIGESTS} == *"${BASE_IMAGE}"* ]]; then
-        DIGEST=$(echo ${DIGESTS} | tr -d '[' | tr -d ']' | cut -d : -f 2 | cut -d ' ' -f 1)
+        DIGEST=$(echo ${DIGESTS} | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
         SYSDIG_IMAGE_DIGEST=$(echo "sha256:${DIGEST}")
      fi
 
