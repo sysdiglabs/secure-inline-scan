@@ -367,17 +367,31 @@ get_repo_digest_id() {
     # Check to see if repo digest exists
     DIGESTS=$(docker inspect --format="{{.RepoDigests}}" "${SCAN_IMAGES[0]}")
 
-    BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | cut -d / -f 2 | cut -d : -f 1)
+    REPO=$(echo ${IMAGE_NAMES[0]} | rev |  cut -d / -f 2 | rev)
+    BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | rev | cut -d / -f 1 | rev | cut -d : -f 1)
+    TAG=$(echo ${IMAGE_NAMES[0]} | rev | cut -d / -f 1 | rev | cut -d : -f 2)
 
-     if [[ ${DIGESTS} == *"${BASE_IMAGE}"* ]]; then
-        DIGEST=$(echo ${DIGESTS} | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
-        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${DIGEST}")
-     fi
-
+    if [[ -z "${TAG// }" ]]; then
+        TAG='latest'
+    fi
+    
+    FINAL_DIGEST="sha256@12345"    
+    for DIGEST in "${DIGESTS[@]}"
+    do
+        if [[ ${DIGEST} == *"${REPO}/${BASE_IMAGE}:${TAG}"* || ${DIGEST} == *"${REPO}/${BASE_IMAGE}"* || ${DIGEST} == *"${BASE_IMAGE}"* ]]; then
+            FINAL_DIGEST=$(echo ${DIGEST} | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
+        else
+            printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGES[0]}!"
+            printf '%s\n' " Consider running with -d option with a valid sha256:<digestID>."
+        fi    
+    done
+     
     # Generate Image digest ID for given image, if repo digest is not present
     if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
         SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | ${SHASUM_COMMAND} | awk '{ print $1 }' | tr -d "\n")
         SYSDIG_IMAGE_DIGEST=$(echo "sha256:${SYSDIG_IMAGE_DIGEST}")
+    else # Use parsed digest from array of digests based on docker inspect result
+        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${FINAL_DIGEST}")
     fi
 }
 
