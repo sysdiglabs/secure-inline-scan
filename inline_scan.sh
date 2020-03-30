@@ -286,6 +286,7 @@ start_analysis() {
 
     FULLTAG="${SCAN_IMAGES[0]}"
 
+    printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
     get_scan_result_code_by_id
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
         post_analysis
@@ -393,6 +394,9 @@ get_repo_digest_id() {
     else # Use parsed digest from array of digests based on docker inspect result
         SYSDIG_IMAGE_DIGEST=$(echo "sha256:${FINAL_DIGEST}")
     fi
+    printf '\n%s\n' "Repo name: ${REPO}"
+    printf '%s\n' "Base image name: ${BASE_IMAGE}"
+    printf '%s\n\n' "Tag name: ${TAG}"
 }
 
 get_scan_result_code_by_id() {
