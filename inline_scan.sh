@@ -8,7 +8,7 @@ set -eou pipefail
 
 # If using a locally built stateless CI container, export SYSDIG_CI_IMAGE=<image_name>.
 # This will override the image name from Dockerhub.
-INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.5.2}"
+INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.6.1}"
 DOCKER_NAME="${RANDOM:-temp}-inline-anchore-engine"
 DOCKER_ID=""
 ANALYZE=false
@@ -314,7 +314,7 @@ post_analysis() {
 
     # finally, get the account from Sysdig for the input username
     mkdir -p /tmp/sysdig
-    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL%%/}/account")
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/account")
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
 	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
 	CREATE_CMD+=('-u "${ANCHORE_ACCOUNT}"')
