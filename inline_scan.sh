@@ -8,7 +8,7 @@ set -eou pipefail
 
 # If using a locally built stateless CI container, export SYSDIG_CI_IMAGE=<image_name>.
 # This will override the image name from Dockerhub.
-INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.5.2}"
+INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.6.1}"
 DOCKER_NAME="${RANDOM:-temp}-inline-anchore-engine"
 DOCKER_ID=""
 ANALYZE=false
@@ -314,7 +314,7 @@ post_analysis() {
 
     # finally, get the account from Sysdig for the input username
     mkdir -p /tmp/sysdig
-    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL%%/}/account")
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/account")
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
 	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
 	CREATE_CMD+=('-u "${ANCHORE_ACCOUNT}"')
@@ -349,7 +349,7 @@ post_analysis() {
     fi
 
     # Posting the archive to the secure backend
-    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
 
 	if [[ "${HCODE}" != 200 ]]; then
 	    printf '\n\t%s\n\n' "ERROR - unable to POST ${analysis_archive_name} to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
