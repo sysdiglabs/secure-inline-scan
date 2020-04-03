@@ -17,8 +17,8 @@ Here are examples of using the inline scanner in different pipelines.
 * Internet Access to post results to Sysdig Secure
 
 **Note**: For Airgapped environments, we suggest the following:
-* docker pull docker.io/anchore/inline-scan:v0.5.2
-* docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container) 
+* docker pull docker.io/anchore/inline-scan:v0.6.1
+* docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container)
 * Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
 
 ## Usage

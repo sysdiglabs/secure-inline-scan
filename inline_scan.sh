@@ -246,7 +246,7 @@ get_and_validate_images() {
 
 prepare_inline_container() {
     # Check if env var is overriding which inline-scan image to utilize.
-    if [[ -z "${SYSDIG_CI_IMAGE-docker.io/anchore/inline-scan:v0.5.0}" ]]; then
+    if [[ -z "${SYSDIG_CI_IMAGE-docker.io/anchore/inline-scan:v0.6.1}" ]]; then
         printf '\n%s\n' "Pulling ${INLINE_SCAN_IMAGE}"
         docker pull "${INLINE_SCAN_IMAGE}"
     else
