@@ -192,7 +192,7 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - Directory: ${PDF_DIRECTORY} does not exist" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${PDF_DIRECTORY: -1}" == '/' ]]; then
+    elif [[ "${R_flag:-}" ]] && [[ "${PDF_DIRECTORY: -1}" == '/' ]]; then
         printf '\n\t%s\n\n' "ERROR - must specify file path - ${PDF_DIRECTORY} without trailing slash" >&2
         display_usage_analyzer >&2
         exit 1
