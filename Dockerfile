@@ -1,6 +1,6 @@
-FROM ubuntu:18.04
+FROM docker:dind
 
 MAINTAINER Sysdig
 
-RUN apt update && apt install curl docker.io -y && rm -rf /var/lib/apt/*
+RUN apk --no-cache add curl bash
 COPY inline_scan.sh /bin/inline_scan
