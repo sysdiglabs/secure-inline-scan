@@ -2,7 +2,7 @@ VERSION=$(shell cat version)
 IMAGE_NAME=sysdiglabs/secure-inline-scan
 
 build:
-	docker build --network=host -t $(IMAGE_NAME):$(VERSION) .
+	docker build -t $(IMAGE_NAME):$(VERSION) .
 
 push:
 	docker push $(IMAGE_NAME):$(VERSION)
