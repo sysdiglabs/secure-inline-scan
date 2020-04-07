@@ -1,0 +1,17 @@
+version: 2
+jobs:
+  build:
+    environment:
+      IMAGE_NAME: sysdiglabs/secure-inline-scan
+    docker:
+      - image: docker:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: docker build -t $IMAGE_NAME:$CIRCLE_SHA1 .
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build
