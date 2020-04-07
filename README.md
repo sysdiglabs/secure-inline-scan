@@ -15,6 +15,10 @@ Here are examples of using the inline scanner in different pipelines.
 * Anchore Engine v0.5.0
 * Docker client access to pull images from Dockerhub
 * Internet Access to post results to Sysdig Secure
+* The latest version of the inline script will always be available at: https://download.sysdig.com/stable/inline_scan.sh
+* For on-prem Sysdig Secure customers the script will follow the convention below: 
+Sysdig Secure 3.2 - https://download.sysdig.com/stable/inline-scan-versioned/inline-scan-v3.2.sh
+
 
 **Note**: For Airgapped environments, we suggest the following:
 * docker pull docker.io/anchore/inline-scan:v0.6.1
@@ -22,6 +26,10 @@ Here are examples of using the inline scanner in different pipelines.
 * Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
 
 ## Usage
+
+Simple one line option 
+
+    $ curl -s https://download.sysdig.com/stable/inline_scan.sh | bash -s -- analyze -s https://secure.sysdig.com -k <ACCESS_KEY> -P <FULL_IMAGE_TAG>
 
 On the host via the script
 
