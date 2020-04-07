@@ -4,3 +4,5 @@ MAINTAINER Sysdig
 
 RUN apk --no-cache add curl bash
 COPY inline_scan.sh /bin/inline_scan
+
+ENTRYPOINT ["/bin/inline_scan"]
