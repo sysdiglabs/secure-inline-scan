@@ -22,7 +22,7 @@ Sysdig Secure 3.2 - https://download.sysdig.com/stable/inline-scan-versioned/inl
 
 **Note**: For Airgapped environments, we suggest the following:
 * docker pull docker.io/anchore/inline-scan:v0.6.1
-* docker pull sysdiglabs/secure_inline_scan:latest (if using the inline scan container)
+* docker pull sysdiglabs/secure-inline-scan:latest (if using the inline scan container)
 * Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
 
 ## Usage
@@ -72,8 +72,8 @@ On the host via the script
 
 Using docker
 
-    $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock sysdiglabs/secure_inline_scan:latest /bin/inline_scan analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
-       
+    $ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock sysdiglabs/secure-inline-scan:latest analyze -s <SYSDIG_REMOTE_URL> -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
+
 ## Example
 
 #### Analyze the image and post the results to Sysdig Secure.
