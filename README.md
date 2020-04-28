@@ -66,7 +66,7 @@ On the host via the script
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
-      -l  [optional] To invoke curl commands as secure (locked) connections
+      -l  [optional] To invoke curl commands as locked connections
       -P  [optional] Pull container image from registry
       -V  [optional] Increase verbosity
       -R  [optional] Download scan result pdf report
