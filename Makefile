@@ -1,9 +1,10 @@
 VERSION=$(shell cat version)
+IMAGE_NAME=sysdiglabs/secure-inline-scan
 
 build:
-	docker build --network=host -t sysdiglabs/secure_inline_scan:$(VERSION) .
+	docker build -t $(IMAGE_NAME):$(VERSION) .
 
 push:
-	docker push sysdiglabs/secure_inline_scan:$(VERSION)
-	docker tag sysdiglabs/secure_inline_scan:$(VERSION) sysdiglabs/secure_inline_scan:latest
-	docker push sysdiglabs/secure_inline_scan:latest
+	docker push $(IMAGE_NAME):$(VERSION)
+	docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):latest
+	docker push $(IMAGE_NAME):latest
