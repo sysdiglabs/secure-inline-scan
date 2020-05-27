@@ -287,6 +287,9 @@ start_analysis() {
     fi
 
     FULLTAG="${SCAN_IMAGES[0]}"
+    if [[ ! "${FULLTAG}" =~ [:]+ ]]; then
+      FULLTAG="${FULLTAG}:latest"
+    fi
 
     printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
     get_scan_result_code_by_id
