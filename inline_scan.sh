@@ -86,9 +86,10 @@ Sysdig Inline Analyzer --
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
-      -P  [optional] Pull container image from registry
-      -V  [optional] Increase verbosity
+      -P         [optional] Pull container image from registry
+      -V         [optional] Increase verbosity
       -R <PATH>  [optional] Download scan result pdf in a specified local directory (ex: -R /staging/reports)
+      -o         [optional] Use this flag if targeting onprem sysdig installation
 
 EOF
 }
