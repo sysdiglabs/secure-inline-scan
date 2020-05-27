@@ -119,7 +119,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:a:d:f:i:m:R:PVh' option; do
+    while getopts ':k:s:a:d:f:i:m:R:PVho' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
@@ -128,6 +128,7 @@ get_and_validate_analyzer_options() {
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
             d  ) d_flag=true; SYSDIG_IMAGE_DIGEST="${OPTARG}";;
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
+            o  ) o_flag=true;;
             P  ) P_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
@@ -315,6 +316,10 @@ post_analysis() {
     # finally, get the account from Sysdig for the input username
     mkdir -p /tmp/sysdig
     HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/account")
+    if [[ "${HCODE}" == 404 ]]; then
+	HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL%%/}/account")
+    fi
+
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
 	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
 	CREATE_CMD+=('-u "${ANCHORE_ACCOUNT}"')
@@ -375,8 +380,8 @@ get_repo_digest_id() {
     if [[ -z "${TAG// }" ]]; then
         TAG='latest'
     fi
-    
-    FINAL_DIGEST="sha256@12345"    
+
+    FINAL_DIGEST="sha256@12345"
     for DIGEST in "${DIGESTS[@]}"
     do
         if [[ ${DIGEST} == *"${REPO}/${BASE_IMAGE}:${TAG}"* || ${DIGEST} == *"${REPO}/${BASE_IMAGE}"* || ${DIGEST} == *"${BASE_IMAGE}"* ]]; then
@@ -384,9 +389,9 @@ get_repo_digest_id() {
         else
             printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGES[0]}!"
             printf '%s\n' " Consider running with -d option with a valid sha256:<digestID>."
-        fi    
+        fi
     done
-     
+
     # Generate Image digest ID for given image, if repo digest is not present
     if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
         SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | ${SHASUM_COMMAND} | awk '{ print $1 }' | tr -d "\n")
@@ -452,7 +457,11 @@ print_scan_result_summary_message() {
             curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=true"
         fi
         ENCODED_TAG=$(urlencode ${FULLTAG})
-        echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+	if [[ "${o_flag:-}" ]]; then
+            echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+	else
+	    echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+	fi
         printf "PDF report of the scan results can be generated with -R option.\n"
     fi
 }
@@ -541,4 +550,3 @@ cleanup() {
 }
 
 main "$@"
-
