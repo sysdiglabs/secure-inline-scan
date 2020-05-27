@@ -25,6 +25,8 @@ Sysdig Secure 3.2 - https://download.sysdig.com/stable/inline-scan-versioned/inl
 * docker pull sysdiglabs/secure-inline-scan:latest (if using the inline scan container)
 * Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning
 
+**Note**: For onprem environments, use the -o flag in order to get the correct scan result URL.
+
 ## Usage
 
 Simple one line option 
