@@ -8,8 +8,8 @@ set -eou pipefail
 
 # If using a locally built stateless CI container, export SYSDIG_CI_IMAGE=<image_name>.
 # This will override the image name from Dockerhub.
-INLINE_SCAN_IMAGE="${SYSDIG_CI_IMAGE:-docker.io/anchore/inline-scan:v0.6.1}"
 DOCKER_NAME="${RANDOM:-temp}-inline-anchore-engine"
+INLINE_SCAN_IMAGE="${INLINE_SCAN_IMAGE:-}"
 DOCKER_ID=""
 ANALYZE=false
 VULN_SCAN=false
@@ -249,13 +249,26 @@ get_and_validate_images() {
 }
 
 prepare_inline_container() {
-    # Check if env var is overriding which inline-scan image to utilize.
-    if [[ -z "${SYSDIG_CI_IMAGE-docker.io/anchore/inline-scan:v0.6.1}" ]]; then
-        printf '\n%s\n' "Pulling ${INLINE_SCAN_IMAGE}"
-        docker pull "${INLINE_SCAN_IMAGE}"
+    # Retrieve dynamically from secure the Anchore version for compatibility reasons
+    if [[ -z "$INLINE_SCAN_IMAGE" ]]; then
+        printf 'Retrieving remote Anchore version from Sysdig Secure APIs\n'
+        SCANNING_ANCHORE_STATUS=$(curl -sSkf  -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status")
+        INLINE_SCAN_IMAGE_VERSION=$(echo ${SCANNING_ANCHORE_STATUS} | grep -o -E '"version":[ \t]?".*"' | awk -F ":" '{print $2}' | awk -F '"' '{print $2}')
+
+        if [[ -z ${INLINE_SCAN_IMAGE_VERSION} ]]; then
+            printf "Failed to retrieve Anchore version from Sysdig Secure APIs. Got response %s \n" "${SCANNING_ANCHORE_STATUS}"
+            printf "\nTry again or set a specific image via INLINE_SCAN_IMAGE environment variable"
+            exit 1
+        fi
+
+        printf "Found Anchore version from Sysdig Secure APIs %s" ${INLINE_SCAN_IMAGE_VERSION}
+        INLINE_SCAN_IMAGE="docker.io/anchore/inline-scan:v${INLINE_SCAN_IMAGE_VERSION}"
     else
-        printf '\n%s\n' "Using local image for scanning -- ${INLINE_SCAN_IMAGE}"
+        printf 'Using set inline scan image'
     fi
+
+    printf '\n%s\n' "Pulling ${INLINE_SCAN_IMAGE}"
+    docker pull "${INLINE_SCAN_IMAGE}"
 
     # setup command arrays to eval & run after adding all required options
     CREATE_CMD=('docker create --name "${DOCKER_NAME}"')
