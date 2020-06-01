@@ -86,6 +86,7 @@ Sysdig Inline Analyzer --
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
       -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
       -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
+      -C         [optional] Delete the image from Sysdig Secure if the scan fails
       -P         [optional] Pull container image from registry
       -V         [optional] Increase verbosity
       -R <PATH>  [optional] Download scan result pdf in a specified local directory (ex: -R /staging/reports)
@@ -120,7 +121,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:a:d:f:i:m:R:PVho' option; do
+    while getopts ':k:s:a:d:f:i:m:R:CPVho' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
@@ -131,6 +132,7 @@ get_and_validate_analyzer_options() {
             m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
             o  ) o_flag=true;;
             P  ) P_flag=true;;
+            C  ) clean_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
@@ -301,7 +303,7 @@ start_analysis() {
         # switch docker.io vs rest-of-the-world registries
         # using (light) docker rule for naming: if it has a "." or a ":" we assume the image is from some specific registry
         # see: https://github.com/docker/distribution/blob/master/reference/normalize.go#L91
-        IS_DOCKER_IO=$(echo ${fullImageName} | grep '\.\|\:' || echo "")
+        IS_DOCKER_IO=$(echo ${FULL_IMAGE_NAME} | grep '\.\|\:' || echo "")
         if [[ -z ${IS_DOCKER_IO} ]]; then
             # Forcing docker.io registry
             FULLTAG="docker.io/${SCAN_IMAGES[0]}"
@@ -459,6 +461,10 @@ get_scan_result_by_id_with_retries() {
     else
         printf "\nStatus is fail\n"
         print_scan_result_summary_message
+        if [[ "${clean_flag:-}" ]]; then
+            echo "Cleaning image from Anchore"
+            curl -X DELETE -s -k -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}?force=true"
+        fi
         exit 1
     fi
 }
@@ -481,14 +487,15 @@ print_scan_result_summary_message() {
             echo "Result Details: "
             curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=true"
         fi
-
         ENCODED_TAG=$(urlencode ${FULLTAG})
 
-	if [[ "${o_flag:-}" ]]; then
-            echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
-	else
-	    echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
-	fi
+        if [[ -z "${clean_flag:-}" || "${status}" = "pass" ]]; then
+            if [[ "${o_flag:-}" ]]; then
+                    echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+            else
+                echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+            fi
+        fi
         printf "PDF report of the scan results can be generated with -R option.\n"
     fi
 }
