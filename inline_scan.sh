@@ -41,19 +41,19 @@ GET_CALL_RETRIES=300
 DETAIL=false
 
 if command -v sha256sum >/dev/null 2>&1; then
-  SHASUM_COMMAND="sha256sum"
+    SHASUM_COMMAND="sha256sum"
 else
-  if command -v shasum >/dev/null 2>&1; then
-    SHASUM_COMMAND="shasum -a 256"
-  else
-    printf "ERROR: sha256sum or shasum command is required but missing\n"
-    exit 1
-  fi
+    if command -v shasum >/dev/null 2>&1; then
+        SHASUM_COMMAND="shasum -a 256"
+    else
+        printf "ERROR: sha256sum or shasum command is required but missing\n"
+        exit 1
+    fi
 fi
 
 
 display_usage() {
-cat << EOF
+    cat << EOF
 
 Sysdig Inline Scanner/Analyzer --
 
@@ -66,7 +66,7 @@ EOF
 }
 
 display_usage_analyzer() {
-cat << EOF
+    cat << EOF
 
 Sysdig Inline Analyzer --
 
@@ -89,6 +89,7 @@ Sysdig Inline Analyzer --
       -C         [optional] Delete the image from Sysdig Secure if the scan fails
       -P         [optional] Pull container image from registry
       -V         [optional] Increase verbosity
+      -v <PATH>  [optional] Use this absolute PATH for intermediate tar files. Path will be created if not existing. Default is /tmp/sysdig (ex: -v $PWD/temp)
       -R <PATH>  [optional] Download scan result pdf in a specified local directory (ex: -R /staging/reports)
       -o         [optional] Use this flag if targeting onprem sysdig installation
 
@@ -106,7 +107,7 @@ main() {
     fi
     if [[ "$1" == 'help' ]]; then
         display_usage >&2
-	exit 1
+        exit 1
     elif [[ "$1" == 'analyze' ]]; then
         shift "$((OPTIND))"
         ANALYZE=true
@@ -121,7 +122,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:a:d:f:i:m:R:CPVho' option; do
+    while getopts ':k:s:a:d:f:i:m:R:v:CPVho' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
@@ -135,6 +136,7 @@ get_and_validate_analyzer_options() {
             C  ) clean_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
+            v  ) v_flag=true; VOLUME_PATH="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
             :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
@@ -530,6 +532,7 @@ save_and_copy_images() {
         IMAGE_FILES+=("$save_file_name")
 
         if [[ "${v_flag-""}" ]]; then
+            mkdir -p ${VOLUME_PATH}
             local save_file_path="${VOLUME_PATH}/${save_file_name}"
         else
             mkdir -p /tmp/sysdig
