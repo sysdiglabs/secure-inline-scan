@@ -292,6 +292,26 @@ start_analysis() {
     fi
 
     printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
+
+    FULL_IMAGE_NAME=$(docker inspect --format="{{- if .RepoDigests -}}{{index .RepoDigests 0}}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -d "@" -f 1)
+    if [[ -z ${FULL_IMAGE_NAME} ]]; then
+        # local built image, has not digest and refers to no registry
+        FULLTAG="localbuild/${SCAN_IMAGES[0]}"
+    else
+        # switch docker.io vs rest-of-the-world registries
+        # using (light) docker rule for naming: if it has a "." or a ":" we assume the image is from some specific registry
+        # see: https://github.com/docker/distribution/blob/master/reference/normalize.go#L91
+        IS_DOCKER_IO=$(echo ${fullImageName} | grep '\.\|\:' || echo "")
+        if [[ -z ${IS_DOCKER_IO} ]]; then
+            # Forcing docker.io registry
+            FULLTAG="docker.io/${SCAN_IMAGES[0]}"
+        else
+            FULLTAG="${SCAN_IMAGES[0]}"
+        fi
+
+    fi
+
+    echo "using full image name: ${FULLTAG}"
     get_scan_result_code_by_id
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
         post_analysis
@@ -337,7 +357,8 @@ post_analysis() {
 	exit 1
     fi
 
-    CREATE_CMD+=("${SCAN_IMAGES[*]}")
+
+    CREATE_CMD+=("${FULLTAG}")
     DOCKER_ID=$(eval "${CREATE_CMD[*]}")
     eval "${COPY_CMDS[*]-}"
     save_and_copy_images
@@ -460,7 +481,9 @@ print_scan_result_summary_message() {
             echo "Result Details: "
             curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=true"
         fi
+
         ENCODED_TAG=$(urlencode ${FULLTAG})
+
 	if [[ "${o_flag:-}" ]]; then
             echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
 	else
