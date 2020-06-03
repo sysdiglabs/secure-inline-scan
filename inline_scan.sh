@@ -304,7 +304,7 @@ start_analysis() {
         # using (light) docker rule for naming: if it has a "." or a ":" we assume the image is from some specific registry
         # see: https://github.com/docker/distribution/blob/master/reference/normalize.go#L91
         IS_DOCKER_IO=$(echo ${FULL_IMAGE_NAME} | grep '\.\|\:' || echo "")
-        if [[ -z ${IS_DOCKER_IO} ]]; then
+        if [[ -z ${IS_DOCKER_IO} ]] && [[ ! "${SCAN_IMAGES[0]}" =~ ^docker.io* ]]; then
             # Forcing docker.io registry
             FULLTAG="docker.io/${SCAN_IMAGES[0]}"
         else
