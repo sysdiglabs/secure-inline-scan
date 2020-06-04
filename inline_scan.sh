@@ -298,27 +298,27 @@ start_analysis() {
     FULL_IMAGE_NAME=$(docker inspect --format="{{- if .RepoDigests -}}{{index .RepoDigests 0}}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -d "@" -f 1)
     if [[ -z ${FULL_IMAGE_NAME} ]]; then
         # local built image, has not digest and refers to no registry
-        FULLTAG="localbuild/${SCAN_IMAGES[0]}"
+        FULLTAG="localbuild/${FULLTAG}"
     else
         # switch docker.io vs rest-of-the-world registries
         # using (light) docker rule for naming: if it has a "." or a ":" we assume the image is from some specific registry
         # see: https://github.com/docker/distribution/blob/master/reference/normalize.go#L91
         IS_DOCKER_IO=$(echo ${FULL_IMAGE_NAME} | grep '\.\|\:' || echo "")
-        if [[ -z ${IS_DOCKER_IO} ]] && [[ ! "${SCAN_IMAGES[0]}" =~ ^docker.io* ]]; then
+        if [[ -z ${IS_DOCKER_IO} ]] && [[ ! "${FULLTAG}" =~ ^docker.io* ]]; then
             # Forcing docker.io registry
-            FULLTAG="docker.io/${SCAN_IMAGES[0]}"
+            FULLTAG="docker.io/${FULLTAG}"
         else
-            FULLTAG="${SCAN_IMAGES[0]}"
+            FULLTAG="${FULLTAG}"
         fi
 
     fi
 
     echo "using full image name: ${FULLTAG}"
-    get_scan_result_code_by_id
+    get_scan_result_code
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
         post_analysis
     fi
-    get_scan_result_by_id_with_retries
+    get_scan_result_with_retries
 }
 
 post_analysis() {
@@ -408,46 +408,45 @@ get_repo_digest_id() {
         TAG='latest'
     fi
 
-    FINAL_DIGEST="sha256@12345"
     for DIGEST in "${DIGESTS[@]}"
     do
         if [[ ${DIGEST} == *"${REPO}/${BASE_IMAGE}:${TAG}"* || ${DIGEST} == *"${REPO}/${BASE_IMAGE}"* || ${DIGEST} == *"${BASE_IMAGE}"* ]]; then
-            FINAL_DIGEST=$(echo ${DIGEST} | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
-        else
-            printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGES[0]}!"
-            printf '%s\n' " Consider running with -d option with a valid sha256:<digestID>."
+            REPO_DIGEST=$(echo ${DIGEST} | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
         fi
     done
 
     # Generate Image digest ID for given image, if repo digest is not present
-    if [[ "${SYSDIG_IMAGE_DIGEST}" == 'sha256:123456890abcdefg' ]]; then
+    if [[ -z "${REPO_DIGEST:-}" ]]; then
+        printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGES[0]}!"
+        printf '%s\n' " Consider running with -d option with a valid sha256:<digestID>."
         SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | ${SHASUM_COMMAND} | awk '{ print $1 }' | tr -d "\n")
         SYSDIG_IMAGE_DIGEST=$(echo "sha256:${SYSDIG_IMAGE_DIGEST}")
     else # Use parsed digest from array of digests based on docker inspect result
-        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${FINAL_DIGEST}")
+        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${REPO_DIGEST}")
     fi
+
     printf '\n%s\n' "Repo name: ${REPO}"
     printf '%s\n' "Base image name: ${BASE_IMAGE}"
     printf '%s\n\n' "Tag name: ${TAG}"
 }
 
-get_scan_result_code_by_id() {
-    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}")
+get_scan_result_code() {
+    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
 }
 
-get_scan_result_by_id_with_retries() {
+get_scan_result_with_retries() {
     # Fetching the result of each scanned digest
     for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
         get_scan_result_code_by_id
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
-            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
+            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
             break
         fi
         echo -n "." && sleep 1
     done
 
     printf "Scan Report - \n"
-    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=${DETAIL}"
+    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}"
 
     if [[ "${R_flag-""}" ]]; then
         printf "\nDownloading PDF Scan result for image id: ${SYSDIG_IMAGE_ID} / digest: ${SYSDIG_IMAGE_DIGEST}"
@@ -485,24 +484,24 @@ print_scan_result_summary_message() {
     if [[ ! "${V_flag-""}"  && ! "${R_flag-""}" ]]; then
         if [[ ! "${status}" = "pass" ]]; then
             echo "Result Details: "
-            curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/by_id/${SYSDIG_IMAGE_ID}/check?tag=$FULLTAG&detail=true"
+            curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=true"
         fi
-        ENCODED_TAG=$(urlencode ${FULLTAG})
-
-        if [[ -z "${clean_flag:-}" || "${status}" = "pass" ]]; then
-            if [[ "${o_flag:-}" ]]; then
-                    echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
-            else
-                echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
-            fi
-        fi
-        printf "PDF report of the scan results can be generated with -R option.\n"
     fi
+
+    if [[ -z "${clean_flag:-}" ]]; then
+        ENCODED_TAG=$(urlencode ${FULLTAG})
+        if [[ "${o_flag:-}" ]]; then
+            echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+        else
+            echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
+        fi
+    fi
+    printf "PDF report of the scan results can be generated with -R option.\n"
 }
 
 get_scan_result_pdf_by_digest() {
     date_format=$(date +'%Y-%m-%d')
-    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=$FULLTAG"
+    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=${FULLTAG}"
 }
 
 save_and_copy_images() {
@@ -511,6 +510,10 @@ save_and_copy_images() {
         local base_image_name="${image##*/}"
         echo "Saving ${image} for local analysis"
         local save_file_name="${base_image_name}.tar"
+        if [[ ! "${image}" =~ [:]+ ]]; then
+            save_file_name="${base_image_name}:latest.tar"
+        fi
+
         IMAGE_FILES+=("$save_file_name")
 
         if [[ "${v_flag-""}" ]]; then
