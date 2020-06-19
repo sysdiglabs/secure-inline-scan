@@ -340,7 +340,9 @@ post_analysis() {
     CREATE_CMD+=('-d "${SYSDIG_IMAGE_DIGEST}" -i "${SYSDIG_IMAGE_ID}"')
 
     if [[ "${a_flag-""}" ]]; then
-        CREATE_CMD+=('-a "${SYSDIG_ANNOTATIONS}"')
+        CREATE_CMD+=('-a "${SYSDIG_ANNOTATIONS},added-by=sysdig-inline-scanner"')
+    else
+        CREATE_CMD+=('-a "added-by=sysdig-inline-scanner"')
     fi
     if [[ "${g_flag-""}" ]]; then
         CREATE_CMD+=('-g')
