@@ -17,9 +17,9 @@ CREATE_CMD=()
 RUN_CMD=()
 COPY_CMDS=()
 IMAGE_NAMES=()
-IMAGE_FILES=()
 SCAN_IMAGES=()
 FAILED_IMAGES=()
+FILES_TO_CLEANUP=()
 VALIDATED_OPTIONS=""
 # Vuln scan option variable defaults
 DOCKERFILE="./Dockerfile"
@@ -136,7 +136,7 @@ get_and_validate_analyzer_options() {
             C  ) clean_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
-            v  ) v_flag=true; VOLUME_PATH="${OPTARG}";;
+            v  ) v_flag=true; VOLUME_PATH="${OPTARG}/$(date +%s)";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
             :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
@@ -386,11 +386,7 @@ post_analysis() {
     echo
     docker start -ia "${DOCKER_NAME}"
 
-    local analysis_archive_name="${IMAGE_FILES[*]%.tar}-archive.tgz"
-    # copy image analysis archive from inline_scan containter to host & curl to remote anchore-engine endpoint
-    docker cp "${DOCKER_NAME}:/anchore-engine/image-analysis-archive.tgz" "/tmp/sysdig/${analysis_archive_name}"
-
-    if [[ -f "/tmp/sysdig/${analysis_archive_name}" ]]; then
+    if [[ -f "${VOLUME_PATH}/image-analysis-archive.tgz" ]]; then
         printf '%s\n' " Analysis complete!"
         printf '\n%s\n' "Sending analysis archive to ${SYSDIG_SCANNING_URL%%/}"
     else
@@ -400,7 +396,7 @@ post_analysis() {
     fi
 
     # Posting the archive to the secure backend
-    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${VOLUME_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
 
 	if [[ "${HCODE}" != 200 ]]; then
 	    printf '\n\t%s\n\n' "ERROR - unable to POST ${analysis_archive_name} to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
@@ -528,14 +524,22 @@ save_and_copy_images() {
     echo "Saving ${base_image_name} for local analysis"
     save_file_name="${base_image_name}.tar"
 
-    IMAGE_FILES+=("$save_file_name")
-
     if [[ "${v_flag-""}" ]]; then
         mkdir -p ${VOLUME_PATH}
         local save_file_path="${VOLUME_PATH}/${save_file_name}"
+
+        FILES_TO_CLEANUP+=("${VOLUME_PATH}/image-analysis-archive.tgz")
+        FILES_TO_CLEANUP+=("${VOLUME_PATH}/${save_file_name}")
+        # Note: adding this too because Anchore internally renames the file. See: https://github.com/anchore/ci-tools/blob/v0.7.2/scripts/image_analysis.sh#L64
+        FILES_TO_CLEANUP+=("${VOLUME_PATH}/${save_file_name//:/_}")
     else
         mkdir -p /tmp/sysdig
         local save_file_path="/tmp/sysdig/${save_file_name}"
+
+        FILES_TO_CLEANUP+=("/tmp/sysdig/image-analysis-archive.tgz")
+        FILES_TO_CLEANUP+=("/tmp/sysdig/${save_file_name}")
+        # Note: adding this too because Anchore internally renames the file. See: https://github.com/anchore/ci-tools/blob/v0.7.2/scripts/image_analysis.sh#L64
+        FILES_TO_CLEANUP+=("/tmp/sysdig/${save_file_name//:/_}")
     fi
 
     docker save "${FULLTAG}" -o "${save_file_path}"
@@ -581,11 +585,16 @@ cleanup() {
         unset DOCKER_ID
     done
 
-    if [[ "${#IMAGE_FILES[@]}" -ge 1 ]] || [[ -f /tmp/sysdig/sysdig_output.log ]]; then
-        if [[ -d "/tmp/sysdig" ]]; then
-            rm -rf "/tmp/sysdig"
-        fi
+    for to_remove in ${FILES_TO_CLEANUP[@]}; do
+        rm -rf ${to_remove}
+    done
+    if [[ "${v_flag-""}" ]]; then
+        # Safely removing directory if it's empty
+        rmdir ${VOLUME_PATH} 2>/dev/null || :
+    else
+        rmdir "/tmp/sysdig" 2>/dev/null || :
     fi
+
 
     exit "${ret}"
 }
