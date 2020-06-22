@@ -25,7 +25,7 @@ VALIDATED_OPTIONS=""
 DOCKERFILE="./Dockerfile"
 POLICY_BUNDLE="./policy_bundle.json"
 TIMEOUT=300
-VOLUME_PATH="/tmp/"
+VOLUME_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
 SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
@@ -284,10 +284,8 @@ prepare_inline_container() {
         CREATE_CMD+=('-e VERBOSE=true')
         RUN_CMD+=('-e VERBOSE=true')
     fi
-    if [[ "${v_flag-""}" ]]; then
-        printf '\n%s\n' "Creating volume mount -- ${VOLUME_PATH}:/anchore-engine"
-        CREATE_CMD+=('-v "${VOLUME_PATH}:/anchore-engine:rw"')
-    fi
+    printf '\n%s\n' "Creating volume mount -- ${VOLUME_PATH}:/anchore-engine"
+    CREATE_CMD+=('-v "${VOLUME_PATH}:/anchore-engine:rw"')
 
     CREATE_CMD+=('"${INLINE_SCAN_IMAGE}"')
     RUN_CMD+=('"${INLINE_SCAN_IMAGE}"')
