@@ -304,8 +304,12 @@ start_analysis() {
     fi
 
     FULLTAG="${SCAN_IMAGES[0]}"
-    if [[ ! "${FULLTAG}" =~ [:]+ ]]; then
-      FULLTAG="${FULLTAG}:latest"
+
+    if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
+        local repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -f 2 -d ":")
+        FULLTAG=$(echo ${FULLTAG} | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+    elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
+        FULLTAG="${FULLTAG}:latest"
     fi
 
     printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
@@ -522,46 +526,30 @@ get_scan_result_pdf_by_digest() {
 }
 
 save_and_copy_images() {
-    # Save all image files to /tmp and copy to created container
-    for image in "${SCAN_IMAGES[@]-}"; do
-        local base_image_name="${image##*/}"
-        echo "Saving ${image} for local analysis"
-        local save_file_name="${base_image_name}.tar"
-        if [[ ! "${image}" =~ [:]+ ]]; then
-            save_file_name="${base_image_name}:latest.tar"
-        fi
+    local base_image_name=$(echo ${FULLTAG} | rev | cut -d '/' -f 1 | rev )
+    echo "Saving ${base_image_name} for local analysis"
+    save_file_name="${base_image_name}.tar"
 
-        IMAGE_FILES+=("$save_file_name")
+    IMAGE_FILES+=("$save_file_name")
 
-        if [[ "${v_flag-""}" ]]; then
-            mkdir -p ${VOLUME_PATH}
-            local save_file_path="${VOLUME_PATH}/${save_file_name}"
-        else
-            mkdir -p /tmp/sysdig
-            local save_file_path="/tmp/sysdig/${save_file_name}"
-        fi
+    if [[ "${v_flag-""}" ]]; then
+        mkdir -p ${VOLUME_PATH}
+        local save_file_path="${VOLUME_PATH}/${save_file_name}"
+    else
+        mkdir -p /tmp/sysdig
+        local save_file_path="/tmp/sysdig/${save_file_name}"
+    fi
 
-        # If image is passed without a tag, append :latest to docker save to prevent skopeo manifest error
-        if [[ ! "${image}" =~ [:]+ ]]; then
-            docker save "${image}:latest" -o "${save_file_path}"
-        else
-            docker save "${image}" -o "${save_file_path}"
-        fi
+    docker save "${FULLTAG}" -o "${save_file_path}"
 
-        if [[ -f "${save_file_path}" ]]; then
-            chmod +r "${save_file_path}"
-            printf '%s' "Successfully prepared image archive -- ${save_file_path}"
-        else
-            printf '\n\t%s\n\n' "ERROR - unable to save docker image to ${save_file_path}." >&2
-            display_usage >&2
-            exit 1
-        fi
-
-        if [[ ! "${v_flag-""}" ]]; then
-            docker cp "${save_file_path}" "${DOCKER_NAME}:/anchore-engine/${save_file_name}"
-            rm -f "${save_file_path}"
-        fi
-    done
+    if [[ -f "${save_file_path}" ]]; then
+        chmod +r "${save_file_path}"
+        printf '%s' "Successfully prepared image archive -- ${save_file_path}"
+    else
+        printf '\n\t%s\n\n' "ERROR - unable to save docker image to ${save_file_path}." >&2
+        display_usage >&2
+        exit 1
+    fi
 }
 
 interupt() {
