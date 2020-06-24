@@ -576,6 +576,7 @@ cleanup() {
         unset DOCKER_ID
     done
 
+    echo "Removing temporary folder created ${VOLUME_PATH}"
     rm -rf "${VOLUME_PATH}"
 
     exit "${ret}"
