@@ -533,7 +533,7 @@ save_and_copy_images() {
     save_file_name="${base_image_name}.tar"
     local save_file_path="${VOLUME_PATH}/${save_file_name}"
 
-    docker save "${FULLTAG}" -o "${save_file_path}"
+    docker save "${SCAN_IMAGES[0]}" -o "${save_file_path}"
 
     if [[ -f "${save_file_path}" ]]; then
         chmod +r "${save_file_path}"
