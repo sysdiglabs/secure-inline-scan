@@ -19,7 +19,6 @@ COPY_CMDS=()
 IMAGE_NAMES=()
 SCAN_IMAGES=()
 FAILED_IMAGES=()
-FILES_TO_CLEANUP=()
 VALIDATED_OPTIONS=""
 # Vuln scan option variable defaults
 DOCKERFILE="./Dockerfile"
@@ -136,7 +135,7 @@ get_and_validate_analyzer_options() {
             C  ) clean_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
-            v  ) v_flag=true; VOLUME_PATH="${OPTARG}/$(date +%s)";;
+            v  ) v_flag=true; VOLUME_PATH="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
             :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
@@ -207,6 +206,15 @@ get_and_validate_analyzer_options() {
     if [[ "${V_flag:-}" ]]; then
         DETAIL=true
         set -x
+    fi
+
+    if [[ ! $VOLUME_PATH == /* ]]; then
+        printf '\n\t%s\n\n' "ERROR - Use absolute path with -v flag. Actual value is '${VOLUME_PATH}'" >&2
+        display_usage_analyzer >&2
+        exit 1
+    else
+        VOLUME_PATH="${VOLUME_PATH}/sysdig-inline-scan-$(date +%s)"
+        mkdir -p ${VOLUME_PATH}
     fi
 
     VALIDATED_OPTIONS="$@"
@@ -523,24 +531,7 @@ save_and_copy_images() {
     local base_image_name=$(echo ${FULLTAG} | rev | cut -d '/' -f 1 | rev )
     echo "Saving ${base_image_name} for local analysis"
     save_file_name="${base_image_name}.tar"
-
-    if [[ "${v_flag-""}" ]]; then
-        mkdir -p ${VOLUME_PATH}
-        local save_file_path="${VOLUME_PATH}/${save_file_name}"
-
-        FILES_TO_CLEANUP+=("${VOLUME_PATH}/image-analysis-archive.tgz")
-        FILES_TO_CLEANUP+=("${VOLUME_PATH}/${save_file_name}")
-        # Note: adding this too because Anchore internally renames the file. See: https://github.com/anchore/ci-tools/blob/v0.7.2/scripts/image_analysis.sh#L64
-        FILES_TO_CLEANUP+=("${VOLUME_PATH}/${save_file_name//:/_}")
-    else
-        mkdir -p /tmp/sysdig
-        local save_file_path="/tmp/sysdig/${save_file_name}"
-
-        FILES_TO_CLEANUP+=("/tmp/sysdig/image-analysis-archive.tgz")
-        FILES_TO_CLEANUP+=("/tmp/sysdig/${save_file_name}")
-        # Note: adding this too because Anchore internally renames the file. See: https://github.com/anchore/ci-tools/blob/v0.7.2/scripts/image_analysis.sh#L64
-        FILES_TO_CLEANUP+=("/tmp/sysdig/${save_file_name//:/_}")
-    fi
+    local save_file_path="${VOLUME_PATH}/${save_file_name}"
 
     docker save "${FULLTAG}" -o "${save_file_path}"
 
@@ -585,16 +576,7 @@ cleanup() {
         unset DOCKER_ID
     done
 
-    for to_remove in ${FILES_TO_CLEANUP[@]}; do
-        rm -rf ${to_remove}
-    done
-    if [[ "${v_flag-""}" ]]; then
-        # Safely removing directory if it's empty
-        rmdir ${VOLUME_PATH} 2>/dev/null || :
-    else
-        rmdir "/tmp/sysdig" 2>/dev/null || :
-    fi
-
+    rm -rf ${VOLUME_PATH}
 
     exit "${ret}"
 }
