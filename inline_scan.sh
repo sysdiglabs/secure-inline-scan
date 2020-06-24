@@ -576,7 +576,7 @@ cleanup() {
         unset DOCKER_ID
     done
 
-    rm -rf ${VOLUME_PATH}
+    rm -rf "${VOLUME_PATH}"
 
     exit "${ret}"
 }
