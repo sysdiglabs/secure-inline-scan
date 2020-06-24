@@ -17,7 +17,6 @@ CREATE_CMD=()
 RUN_CMD=()
 COPY_CMDS=()
 IMAGE_NAMES=()
-IMAGE_FILES=()
 SCAN_IMAGES=()
 FAILED_IMAGES=()
 VALIDATED_OPTIONS=""
@@ -25,7 +24,7 @@ VALIDATED_OPTIONS=""
 DOCKERFILE="./Dockerfile"
 POLICY_BUNDLE="./policy_bundle.json"
 TIMEOUT=300
-VOLUME_PATH="/tmp/"
+VOLUME_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
 SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
@@ -209,6 +208,15 @@ get_and_validate_analyzer_options() {
         set -x
     fi
 
+    if [[ ! $VOLUME_PATH == /* ]]; then
+        printf '\n\t%s\n\n' "ERROR - Use absolute path with -v flag. Actual value is '${VOLUME_PATH}'" >&2
+        display_usage_analyzer >&2
+        exit 1
+    else
+        VOLUME_PATH="${VOLUME_PATH}/sysdig-inline-scan-$(date +%s)"
+        mkdir -p ${VOLUME_PATH}
+    fi
+
     VALIDATED_OPTIONS="$@"
 }
 
@@ -284,10 +292,8 @@ prepare_inline_container() {
         CREATE_CMD+=('-e VERBOSE=true')
         RUN_CMD+=('-e VERBOSE=true')
     fi
-    if [[ "${v_flag-""}" ]]; then
-        printf '\n%s\n' "Creating volume mount -- ${VOLUME_PATH}:/anchore-engine"
-        CREATE_CMD+=('-v "${VOLUME_PATH}:/anchore-engine:rw"')
-    fi
+    printf '\n%s\n' "Creating volume mount -- ${VOLUME_PATH}:/anchore-engine"
+    CREATE_CMD+=('-v "${VOLUME_PATH}:/anchore-engine:rw"')
 
     CREATE_CMD+=('"${INLINE_SCAN_IMAGE}"')
     RUN_CMD+=('"${INLINE_SCAN_IMAGE}"')
@@ -304,8 +310,12 @@ start_analysis() {
     fi
 
     FULLTAG="${SCAN_IMAGES[0]}"
-    if [[ ! "${FULLTAG}" =~ [:]+ ]]; then
-      FULLTAG="${FULLTAG}:latest"
+
+    if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
+        local repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -f 2 -d ":")
+        FULLTAG=$(echo ${FULLTAG} | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+    elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
+        FULLTAG="${FULLTAG}:latest"
     fi
 
     printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
@@ -384,11 +394,7 @@ post_analysis() {
     echo
     docker start -ia "${DOCKER_NAME}"
 
-    local analysis_archive_name="${IMAGE_FILES[*]%.tar}-archive.tgz"
-    # copy image analysis archive from inline_scan containter to host & curl to remote anchore-engine endpoint
-    docker cp "${DOCKER_NAME}:/anchore-engine/image-analysis-archive.tgz" "/tmp/sysdig/${analysis_archive_name}"
-
-    if [[ -f "/tmp/sysdig/${analysis_archive_name}" ]]; then
+    if [[ -f "${VOLUME_PATH}/image-analysis-archive.tgz" ]]; then
         printf '%s\n' " Analysis complete!"
         printf '\n%s\n' "Sending analysis archive to ${SYSDIG_SCANNING_URL%%/}"
     else
@@ -398,7 +404,7 @@ post_analysis() {
     fi
 
     # Posting the archive to the secure backend
-    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@/tmp/sysdig/${analysis_archive_name}" "${SYSDIG_SCANNING_URL}/import/images")
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${VOLUME_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
 
 	if [[ "${HCODE}" != 200 ]]; then
 	    printf '\n\t%s\n\n' "ERROR - unable to POST ${analysis_archive_name} to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
@@ -522,46 +528,21 @@ get_scan_result_pdf_by_digest() {
 }
 
 save_and_copy_images() {
-    # Save all image files to /tmp and copy to created container
-    for image in "${SCAN_IMAGES[@]-}"; do
-        local base_image_name="${image##*/}"
-        echo "Saving ${image} for local analysis"
-        local save_file_name="${base_image_name}.tar"
-        if [[ ! "${image}" =~ [:]+ ]]; then
-            save_file_name="${base_image_name}:latest.tar"
-        fi
+    local base_image_name=$(echo ${FULLTAG} | rev | cut -d '/' -f 1 | rev )
+    echo "Saving ${base_image_name} for local analysis"
+    save_file_name="${base_image_name}.tar"
+    local save_file_path="${VOLUME_PATH}/${save_file_name}"
 
-        IMAGE_FILES+=("$save_file_name")
+    docker save "${FULLTAG}" -o "${save_file_path}"
 
-        if [[ "${v_flag-""}" ]]; then
-            mkdir -p ${VOLUME_PATH}
-            local save_file_path="${VOLUME_PATH}/${save_file_name}"
-        else
-            mkdir -p /tmp/sysdig
-            local save_file_path="/tmp/sysdig/${save_file_name}"
-        fi
-
-        # If image is passed without a tag, append :latest to docker save to prevent skopeo manifest error
-        if [[ ! "${image}" =~ [:]+ ]]; then
-            docker save "${image}:latest" -o "${save_file_path}"
-        else
-            docker save "${image}" -o "${save_file_path}"
-        fi
-
-        if [[ -f "${save_file_path}" ]]; then
-            chmod +r "${save_file_path}"
-            printf '%s' "Successfully prepared image archive -- ${save_file_path}"
-        else
-            printf '\n\t%s\n\n' "ERROR - unable to save docker image to ${save_file_path}." >&2
-            display_usage >&2
-            exit 1
-        fi
-
-        if [[ ! "${v_flag-""}" ]]; then
-            docker cp "${save_file_path}" "${DOCKER_NAME}:/anchore-engine/${save_file_name}"
-            rm -f "${save_file_path}"
-        fi
-    done
+    if [[ -f "${save_file_path}" ]]; then
+        chmod +r "${save_file_path}"
+        printf '%s' "Successfully prepared image archive -- ${save_file_path}"
+    else
+        printf '\n\t%s\n\n' "ERROR - unable to save docker image to ${save_file_path}." >&2
+        display_usage >&2
+        exit 1
+    fi
 }
 
 interupt() {
@@ -595,11 +576,8 @@ cleanup() {
         unset DOCKER_ID
     done
 
-    if [[ "${#IMAGE_FILES[@]}" -ge 1 ]] || [[ -f /tmp/sysdig/sysdig_output.log ]]; then
-        if [[ -d "/tmp/sysdig" ]]; then
-            rm -rf "/tmp/sysdig"
-        fi
-    fi
+    echo "Removing temporary folder created ${VOLUME_PATH}"
+    rm -rf "${VOLUME_PATH}"
 
     exit "${ret}"
 }
