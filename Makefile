@@ -28,7 +28,7 @@ bump-git:
 	git add version
 	git commit -m "Release $(VERSION)"
 	git tag -m "Release $(VERSION)" -a "$(VERSION)"
-	git push
+	git push --follow-tags
 
 bump:
 	cat version | xargs npx semver -i $(INCREMENT) | tee version
