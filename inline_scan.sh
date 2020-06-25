@@ -535,6 +535,14 @@ save_and_copy_images() {
 
     docker save "${SCAN_IMAGES[0]}" -o "${save_file_path}"
 
+    echo "docker save is in progress..."
+    while [[ ! -s "${save_file_path}" ]]; do
+        if [[ "${V_flag:-}" ]]; then
+            echo "waiting for docker save to finish"
+        fi
+        sleep 1
+    done
+
     if [[ -f "${save_file_path}" ]]; then
         chmod +r "${save_file_path}"
         printf '%s' "Successfully prepared image archive -- ${save_file_path}"
