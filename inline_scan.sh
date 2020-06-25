@@ -24,7 +24,7 @@ VALIDATED_OPTIONS=""
 DOCKERFILE="./Dockerfile"
 POLICY_BUNDLE="./policy_bundle.json"
 TIMEOUT=300
-VOLUME_PATH="/tmp/sysdig"
+TMP_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
 SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
@@ -135,7 +135,7 @@ get_and_validate_analyzer_options() {
             C  ) clean_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
-            v  ) v_flag=true; VOLUME_PATH="${OPTARG}";;
+            v  ) v_flag=true; TMP_PATH="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
             :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
@@ -208,13 +208,14 @@ get_and_validate_analyzer_options() {
         set -x
     fi
 
-    if [[ ! $VOLUME_PATH == /* ]]; then
-        printf '\n\t%s\n\n' "ERROR - Use absolute path with -v flag. Actual value is '${VOLUME_PATH}'" >&2
+    if [[ ! $TMP_PATH == /* ]]; then
+        printf '\n\t%s\n\n' "ERROR - Use absolute path with -v flag. Actual value is '${TMP_PATH}'" >&2
         display_usage_analyzer >&2
         exit 1
     else
-        VOLUME_PATH="${VOLUME_PATH}/sysdig-inline-scan-$(date +%s)"
-        mkdir -p ${VOLUME_PATH}
+        TMP_PATH="${TMP_PATH}/sysdig-inline-scan-$(date +%s)"
+        mkdir -p ${TMP_PATH}
+        echo "Using temporary path ${TMP_PATH}"
     fi
 
     VALIDATED_OPTIONS="$@"
@@ -292,8 +293,6 @@ prepare_inline_container() {
         CREATE_CMD+=('-e VERBOSE=true')
         RUN_CMD+=('-e VERBOSE=true')
     fi
-    printf '\n%s\n' "Creating volume mount -- ${VOLUME_PATH}:/anchore-engine"
-    CREATE_CMD+=('-v "${VOLUME_PATH}:/anchore-engine:rw"')
 
     CREATE_CMD+=('"${INLINE_SCAN_IMAGE}"')
     RUN_CMD+=('"${INLINE_SCAN_IMAGE}"')
@@ -342,6 +341,8 @@ start_analysis() {
     get_scan_result_code
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
         post_analysis
+    else
+        echo "Image digest found on Sysdig Secure, skipping analysis."
     fi
     get_scan_result_with_retries
 }
@@ -394,17 +395,20 @@ post_analysis() {
     echo
     docker start -ia "${DOCKER_NAME}"
 
-    if [[ -f "${VOLUME_PATH}/image-analysis-archive.tgz" ]]; then
+    # Copying files manually because volumes can't be trusted to work in docker-in-docker environments
+    docker cp -a "${DOCKER_NAME}:/anchore-engine/image-analysis-archive.tgz" "${TMP_PATH}/image-analysis-archive.tgz"
+
+    if [[ -f "${TMP_PATH}/image-analysis-archive.tgz" ]]; then
         printf '%s\n' " Analysis complete!"
         printf '\n%s\n' "Sending analysis archive to ${SYSDIG_SCANNING_URL%%/}"
     else
-        printf '\n\t%s\n\n' "ERROR - analysis file invalid: /tmp/sysdig/${analysis_archive_name}. An error occured during analysis."  >&2
+        printf '\n\t%s\n\n' "ERROR Cannot find image analysis archive. An error occured during analysis."  >&2
         display_usage_analyzer >&2
         exit 1
     fi
 
     # Posting the archive to the secure backend
-    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${VOLUME_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
 
 	if [[ "${HCODE}" != 200 ]]; then
 	    printf '\n\t%s\n\n' "ERROR - unable to POST ${analysis_archive_name} to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
@@ -531,17 +535,12 @@ save_and_copy_images() {
     local base_image_name=$(echo ${FULLTAG} | rev | cut -d '/' -f 1 | rev )
     echo "Saving ${base_image_name} for local analysis"
     save_file_name="${base_image_name}.tar"
-    local save_file_path="${VOLUME_PATH}/${save_file_name}"
+    local save_file_path="${TMP_PATH}/${save_file_name}"
 
-    docker save "${SCAN_IMAGES[0]}" -o "${save_file_path}"
-
-    echo "docker save is in progress..."
-    while [[ ! -s "${save_file_path}" ]]; do
-        if [[ "${V_flag:-}" ]]; then
-            echo "waiting for docker save to finish"
-        fi
-        sleep 1
-    done
+    # Eventually remove localbuild from FULLTAG is present or docker save crashes
+    local save_img=$(echo ${FULLTAG} | sed "s/localbuild\///g")
+    docker save "${save_img}" -o "${save_file_path}"
+    chmod 777 "${save_file_path}"
 
     if [[ -f "${save_file_path}" ]]; then
         chmod +r "${save_file_path}"
@@ -551,6 +550,9 @@ save_and_copy_images() {
         display_usage >&2
         exit 1
     fi
+
+    # Copying files manually because volumes can't be trusted to work in docker-in-docker environments
+    docker cp "${save_file_path}" "${DOCKER_NAME}:/anchore-engine/${save_file_name}"
 }
 
 interupt() {
@@ -584,8 +586,8 @@ cleanup() {
         unset DOCKER_ID
     done
 
-    echo "Removing temporary folder created ${VOLUME_PATH}"
-    rm -rf "${VOLUME_PATH}"
+    echo "Removing temporary folder created ${TMP_PATH}"
+    rm -rf "${TMP_PATH}"
 
     exit "${ret}"
 }
