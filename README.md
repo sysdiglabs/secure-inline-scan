@@ -36,7 +36,7 @@ curl -s https://download.sysdig.com/stable/inline_scan.sh | bash -s -- analyze -
 
 #### Docker run
 ```
-docker run -v /var/run/docker.sock:/var/run/docker.sock analyze sysdiglabs/secure-inline-scan:latest -s <SYSDIG_REMOTE_URL> -o -k <TOKEN> <FULL_IMAGE_NAME>
+docker run -v /var/run/docker.sock:/var/run/docker.sock sysdiglabs/secure-inline-scan:latest analyze -s <SYSDIG_REMOTE_URL> -o -k <TOKEN> <FULL_IMAGE_NAME>
 ```
 
 ---
