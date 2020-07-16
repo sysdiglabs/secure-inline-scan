@@ -537,9 +537,12 @@ save_and_copy_images() {
     save_file_name="${base_image_name}.tar"
     local save_file_path="${TMP_PATH}/${save_file_name}"
 
-    # Eventually remove localbuild from FULLTAG is present or docker save crashes
-    local save_img=$(echo ${FULLTAG} | sed "s/localbuild\///g")
-    docker save "${save_img}" -o "${save_file_path}"
+    local image_name=$(echo ${SCAN_IMAGES[0]} | rev | cut -d '/' -f 1 | rev )
+    if [[ ! "${image_name}" =~ [:]+ ]]; then
+        docker save "${SCAN_IMAGES[0]}:latest" -o "${save_file_path}"
+    else
+        docker save "${SCAN_IMAGES[0]}" -o "${save_file_path}"
+    fi
     chmod 777 "${save_file_path}"
 
     if [[ -f "${save_file_path}" ]]; then
