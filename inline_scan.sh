@@ -14,7 +14,6 @@ DOCKER_ID=""
 ANALYZE=false
 VULN_SCAN=false
 CREATE_CMD=()
-RUN_CMD=()
 COPY_CMDS=()
 IMAGE_NAMES=()
 SCAN_IMAGES=()
@@ -113,8 +112,7 @@ main() {
         get_and_validate_analyzer_options "$@"
         get_and_validate_images "${VALIDATED_OPTIONS}"
         prepare_inline_container
-        CREATE_CMD+=('analyze')
-        RUN_CMD+=('analyze')
+        CREATE_CMD+=('anchore-manager analyzers exec /anchore-engine/image.tar /tmp/image-analysis-archive.tgz')
         start_analysis
     fi
 }
@@ -273,7 +271,7 @@ prepare_inline_container() {
         fi
 
         printf "Found Anchore version from Sysdig Secure APIs %s" ${INLINE_SCAN_IMAGE_VERSION}
-        INLINE_SCAN_IMAGE="docker.io/anchore/inline-scan:v${INLINE_SCAN_IMAGE_VERSION}"
+        INLINE_SCAN_IMAGE="docker.io/anchore/anchore-engine:v${INLINE_SCAN_IMAGE_VERSION}"
     else
         printf 'Using set inline scan image'
     fi
@@ -283,19 +281,16 @@ prepare_inline_container() {
 
     # setup command arrays to eval & run after adding all required options
     CREATE_CMD=('docker create --name "${DOCKER_NAME}"')
-    RUN_CMD=('docker run -i --name "${DOCKER_NAME}"')
 
     if [[ "${t_flag-""}" ]]; then
         CREATE_CMD+=('-e TIMEOUT="${TIMEOUT}"')
-        RUN_CMD+=('-e TIMEOUT="${TIMEOUT}"')
     fi
     if [[ "${V_flag-""}" ]]; then
         CREATE_CMD+=('-e VERBOSE=true')
-        RUN_CMD+=('-e VERBOSE=true')
     fi
 
+    CREATE_CMD+=('-e ANCHORE_DB_HOST=useless -e ANCHORE_DB_USER=useless -e ANCHORE_DB_PASSWORD=useless')
     CREATE_CMD+=('"${INLINE_SCAN_IMAGE}"')
-    RUN_CMD+=('"${INLINE_SCAN_IMAGE}"')
 }
 
 start_analysis() {
@@ -348,22 +343,19 @@ start_analysis() {
 }
 
 post_analysis() {
-    CREATE_CMD+=('-d "${SYSDIG_IMAGE_DIGEST}" -i "${SYSDIG_IMAGE_ID}"')
+    CREATE_CMD+=('--digest "${SYSDIG_IMAGE_DIGEST}" --image-id "${SYSDIG_IMAGE_ID}"')
 
     if [[ "${a_flag-""}" ]]; then
-        CREATE_CMD+=('-a "${SYSDIG_ANNOTATIONS},added-by=sysdig-inline-scanner"')
+        CREATE_CMD+=('--annotation "${SYSDIG_ANNOTATIONS},added-by=sysdig-inline-scanner"')
     else
-        CREATE_CMD+=('-a "added-by=sysdig-inline-scanner"')
-    fi
-    if [[ "${g_flag-""}" ]]; then
-        CREATE_CMD+=('-g')
+        CREATE_CMD+=('--annotation "added-by=sysdig-inline-scanner"')
     fi
     if [[ "${m_flag-""}" ]]; then
-        CREATE_CMD+=('-m "${MANIFEST_FILE}"')
+        CREATE_CMD+=('--manifest "${MANIFEST_FILE}"')
         COPY_CMDS+=('docker cp "${MANIFEST_FILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${MANIFEST_FILE})";')
     fi
     if [[ "${f_flag-""}" ]]; then
-        CREATE_CMD+=('-f "${DOCKERFILE}"')
+        CREATE_CMD+=('--dockerfile "${DOCKERFILE}"')
         COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
     fi
 
@@ -376,7 +368,7 @@ post_analysis() {
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
 	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
-	CREATE_CMD+=('-u "${ANCHORE_ACCOUNT}"')
+	CREATE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
     else
 	printf '\n\t%s\n\n' "ERROR - unable to fetch account information from anchore-engine for specified user"
 	if [[ -f /tmp/sysdig/sysdig_output.log ]]; then
@@ -388,7 +380,7 @@ post_analysis() {
     fi
 
 
-    CREATE_CMD+=("${FULLTAG}")
+    CREATE_CMD+=('--tag "${FULLTAG}"')
     DOCKER_ID=$(eval "${CREATE_CMD[*]}")
     eval "${COPY_CMDS[*]-}"
     save_and_copy_images
@@ -396,7 +388,7 @@ post_analysis() {
     docker start -ia "${DOCKER_NAME}"
 
     # Copying files manually because volumes can't be trusted to work in docker-in-docker environments
-    docker cp -a "${DOCKER_NAME}:/anchore-engine/image-analysis-archive.tgz" "${TMP_PATH}/image-analysis-archive.tgz"
+    docker cp -a "${DOCKER_NAME}:/tmp/image-analysis-archive.tgz" "${TMP_PATH}/image-analysis-archive.tgz"
 
     if [[ -f "${TMP_PATH}/image-analysis-archive.tgz" ]]; then
         printf '%s\n' " Analysis complete!"
@@ -555,7 +547,7 @@ save_and_copy_images() {
     fi
 
     # Copying files manually because volumes can't be trusted to work in docker-in-docker environments
-    docker cp "${save_file_path}" "${DOCKER_NAME}:/anchore-engine/${save_file_name}"
+    docker cp "${save_file_path}" "${DOCKER_NAME}:/anchore-engine/image.tar"
 }
 
 interupt() {
