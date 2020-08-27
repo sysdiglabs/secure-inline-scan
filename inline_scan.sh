@@ -455,7 +455,7 @@ get_scan_result_code() {
 
 get_scan_result_with_retries() {
     # Fetching the result of each scanned digest
-    for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
+    for ((i=0;  i < GET_CALL_RETRIES; i++)); do
         get_scan_result_code
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
             status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
