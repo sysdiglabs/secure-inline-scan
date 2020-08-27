@@ -134,7 +134,7 @@ get_and_validate_analyzer_options() {
             v  ) TMP_PATH="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
-            :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
+            :  ) printf "\n\t%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
         esac
     done
     shift "$((OPTIND - 1))"
@@ -144,7 +144,7 @@ get_and_validate_analyzer_options() {
     # Check for invalid options
     if [[ ! $(which docker) ]]; then
         # shellcheck disable=SC2016
-        printf '\n\t%s %s\n\n' 'ERROR - Docker is not installed or cannot be found in $PATH' >&2
+        printf '\n\t%s\n\n' 'ERROR - Docker is not installed or cannot be found in $PATH' >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${#@}" -gt 1 ]]; then
