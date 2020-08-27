@@ -306,7 +306,8 @@ start_analysis() {
     FULLTAG="${SCAN_IMAGES[0]}"
 
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        local repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -f 2 -d ":")
+        local repoTag
+        repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -f 2 -d ":")
         FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         FULLTAG="${FULLTAG}:latest"
@@ -524,12 +525,15 @@ get_scan_result_pdf_by_digest() {
 }
 
 save_and_copy_images() {
-    local base_image_name=$(echo "${FULLTAG}" | rev | cut -d '/' -f 1 | rev )
+    local base_image_name
+    base_image_name=$(echo "${FULLTAG}" | rev | cut -d '/' -f 1 | rev )
     echo "Saving ${base_image_name} for local analysis"
     save_file_name="${base_image_name}.tar"
-    local save_file_path="${TMP_PATH}/${save_file_name}"
+    local save_file_path
+    save_file_path="${TMP_PATH}/${save_file_name}"
 
-    local image_name=$(echo "${SCAN_IMAGES[0]}" | rev | cut -d '/' -f 1 | rev )
+    local image_name
+    image_name=$(echo "${SCAN_IMAGES[0]}" | rev | cut -d '/' -f 1 | rev )
     if [[ ! "${image_name}" =~ [:]+ ]]; then
         docker save "${SCAN_IMAGES[0]}:latest" -o "${save_file_path}"
     else
