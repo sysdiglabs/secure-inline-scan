@@ -11,7 +11,6 @@ set -eou pipefail
 DOCKER_NAME="${RANDOM:-temp}-inline-anchore-engine"
 INLINE_SCAN_IMAGE="${INLINE_SCAN_IMAGE:-}"
 DOCKER_ID=""
-ANALYZE=false
 VULN_SCAN=false
 CREATE_CMD=()
 COPY_CMDS=()
@@ -21,7 +20,7 @@ FAILED_IMAGES=()
 VALIDATED_OPTIONS=""
 # Vuln scan option variable defaults
 DOCKERFILE="./Dockerfile"
-POLICY_BUNDLE="./policy_bundle.json"
+# shellcheck disable=SC2034
 TIMEOUT=300
 TMP_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
@@ -108,7 +107,6 @@ main() {
         exit 1
     elif [[ "$1" == 'analyze' ]]; then
         shift "$((OPTIND))"
-        ANALYZE=true
         get_and_validate_analyzer_options "$@"
         get_and_validate_images "${VALIDATED_OPTIONS}"
         prepare_inline_container
@@ -133,7 +131,7 @@ get_and_validate_analyzer_options() {
             C  ) clean_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
-            v  ) v_flag=true; TMP_PATH="${OPTARG}";;
+            v  ) TMP_PATH="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
             :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
@@ -368,6 +366,7 @@ post_analysis() {
     fi
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
+  # shellcheck disable=SC2034
 	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
 	CREATE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
     else
