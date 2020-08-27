@@ -33,7 +33,7 @@ SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 SYSDIG_API_TOKEN="test-token"
 MANIFEST_FILE="./manifest.json"
-PDF_DIRECTORY=$(echo $PWD)
+PDF_DIRECTORY=$(echo "$PWD")
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
 DETAIL=false
@@ -212,7 +212,7 @@ get_and_validate_analyzer_options() {
         exit 1
     else
         TMP_PATH="${TMP_PATH}/sysdig-inline-scan-$(date +%s)"
-        mkdir -p ${TMP_PATH}
+        mkdir -p "${TMP_PATH}"
         echo "Using temporary path ${TMP_PATH}"
     fi
 
@@ -231,7 +231,7 @@ get_and_validate_images() {
     for i in "${IMAGE_NAMES[@]-}"; do
         if ([[ "${p_flag:-false}" == true ]] && [[ "${VULN_SCAN:-false}" == true ]]) || [[ "${P_flag:-false}" == true ]]; then
             echo "Pulling image -- $i"
-            docker pull $i || true
+            docker pull "$i" || true
         fi
 
         docker inspect "$i" &> /dev/null || FAILED_IMAGES+=("$i")
@@ -262,7 +262,7 @@ prepare_inline_container() {
     if [[ -z "$INLINE_SCAN_IMAGE" ]]; then
         printf 'Retrieving remote Anchore version from Sysdig Secure APIs\n'
         SCANNING_ANCHORE_STATUS=$(curl -sSkf  -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status")
-        INLINE_SCAN_IMAGE_VERSION=$(echo ${SCANNING_ANCHORE_STATUS} | grep -o -E '"version":[ \t]?".*"' | awk -F ":" '{print $2}' | awk -F '"' '{print $2}')
+        INLINE_SCAN_IMAGE_VERSION=$(echo "${SCANNING_ANCHORE_STATUS}" | grep -o -E '"version":[ \t]?".*"' | awk -F ":" '{print $2}' | awk -F '"' '{print $2}')
 
         if [[ -z ${INLINE_SCAN_IMAGE_VERSION} ]]; then
             printf "Failed to retrieve Anchore version from Sysdig Secure APIs. Got response %s \n" "${SCANNING_ANCHORE_STATUS}"
@@ -270,7 +270,7 @@ prepare_inline_container() {
             exit 1
         fi
 
-        printf "Found Anchore version from Sysdig Secure APIs %s" ${INLINE_SCAN_IMAGE_VERSION}
+        printf "Found Anchore version from Sysdig Secure APIs %s" "${INLINE_SCAN_IMAGE_VERSION}"
         INLINE_SCAN_IMAGE="docker.io/anchore/anchore-engine:v${INLINE_SCAN_IMAGE_VERSION}"
     else
         printf 'Using set inline scan image'
@@ -306,15 +306,15 @@ start_analysis() {
     FULLTAG="${SCAN_IMAGES[0]}"
 
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        local repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -f 2 -d ":")
-        FULLTAG=$(echo ${FULLTAG} | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+        local repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -f 2 -d ":")
+        FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         FULLTAG="${FULLTAG}:latest"
     fi
 
     printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
 
-    FULL_IMAGE_NAME=$(docker inspect --format="{{- if .RepoDigests -}}{{index .RepoDigests 0}}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -d "@" -f 1)
+    FULL_IMAGE_NAME=$(docker inspect --format="{{- if .RepoDigests -}}{{index .RepoDigests 0}}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -d "@" -f 1)
     if [[ -z ${FULL_IMAGE_NAME} ]]; then
         # local built image, has not digest and refers to no registry
         FULLTAG="localbuild/${FULLTAG}"
@@ -322,7 +322,7 @@ start_analysis() {
         # switch docker.io vs rest-of-the-world registries
         # using (light) docker rule for naming: if it has a "." or a ":" we assume the image is from some specific registry
         # see: https://github.com/docker/distribution/blob/master/reference/normalize.go#L91
-        IS_DOCKER_IO=$(echo ${FULL_IMAGE_NAME} | grep '\.\|\:' || echo "")
+        IS_DOCKER_IO=$(echo "${FULL_IMAGE_NAME}" | grep '\.\|\:' || echo "")
         if [[ -z ${IS_DOCKER_IO} ]] && [[ ! "${FULLTAG}" =~ ^docker.io* ]]; then
             # Forcing docker.io registry
             FULLTAG="docker.io/${FULLTAG}"
@@ -419,9 +419,9 @@ get_repo_digest_id() {
     # Check to see if repo digest exists
     DIGESTS=$(docker inspect --format="{{.RepoDigests}}" "${SCAN_IMAGES[0]}")
 
-    REPO=$(echo ${IMAGE_NAMES[0]} | rev |  cut -d / -f 2 | rev)
-    BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | rev | cut -d / -f 1 | rev | cut -d : -f 1)
-    TAG=$(echo ${IMAGE_NAMES[0]} | rev | cut -d / -f 1 | rev | cut -d : -f 2)
+    REPO=$(echo "${IMAGE_NAMES[0]}" | rev |  cut -d / -f 2 | rev)
+    BASE_IMAGE=$(echo "${IMAGE_NAMES[0]}" | rev | cut -d / -f 1 | rev | cut -d : -f 1)
+    TAG=$(echo "${IMAGE_NAMES[0]}" | rev | cut -d / -f 1 | rev | cut -d : -f 2)
 
     if [[ -z "${TAG// }" ]]; then
         TAG='latest'
@@ -430,7 +430,7 @@ get_repo_digest_id() {
     for DIGEST in "${DIGESTS[@]}"
     do
         if [[ ${DIGEST} == *"${REPO}/${BASE_IMAGE}:${TAG}"* || ${DIGEST} == *"${REPO}/${BASE_IMAGE}"* || ${DIGEST} == *"${BASE_IMAGE}"* ]]; then
-            REPO_DIGEST=$(echo ${DIGEST} | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
+            REPO_DIGEST=$(echo "${DIGEST}" | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
         fi
     done
 
@@ -508,7 +508,7 @@ print_scan_result_summary_message() {
     fi
 
     if [[ -z "${clean_flag:-}" ]]; then
-        ENCODED_TAG=$(urlencode ${FULLTAG})
+        ENCODED_TAG=$(urlencode "${FULLTAG}")
         if [[ "${o_flag:-}" ]]; then
             echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
         else
@@ -524,12 +524,12 @@ get_scan_result_pdf_by_digest() {
 }
 
 save_and_copy_images() {
-    local base_image_name=$(echo ${FULLTAG} | rev | cut -d '/' -f 1 | rev )
+    local base_image_name=$(echo "${FULLTAG}" | rev | cut -d '/' -f 1 | rev )
     echo "Saving ${base_image_name} for local analysis"
     save_file_name="${base_image_name}.tar"
     local save_file_path="${TMP_PATH}/${save_file_name}"
 
-    local image_name=$(echo ${SCAN_IMAGES[0]} | rev | cut -d '/' -f 1 | rev )
+    local image_name=$(echo "${SCAN_IMAGES[0]}" | rev | cut -d '/' -f 1 | rev )
     if [[ ! "${image_name}" =~ [:]+ ]]; then
         docker save "${SCAN_IMAGES[0]}:latest" -o "${save_file_path}"
     else
