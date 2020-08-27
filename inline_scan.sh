@@ -97,7 +97,7 @@ main() {
     trap 'cleanup' EXIT ERR SIGTERM
     trap 'interupt' SIGINT
 
-    if [[ "$#" -lt 1 ]] || ([[ "$1" != 'analyze' ]] && [[ "$1" != 'help' ]]); then
+    if [[ "$#" -lt 1 ]] || { [[ "$1" != 'analyze' ]] && [[ "$1" != 'help' ]]; }; then
         display_usage >&2
         printf '\n\t%s\n\n' "ERROR - must specify operation ('analyze')" >&2
         exit 1
@@ -228,7 +228,7 @@ get_and_validate_images() {
 
     # Make sure all images are available locally, add to FAILED_IMAGES array if not
     for i in "${IMAGE_NAMES[@]-}"; do
-        if ([[ "${p_flag:-false}" == true ]] && [[ "${VULN_SCAN:-false}" == true ]]) || [[ "${P_flag:-false}" == true ]]; then
+        if { [[ "${p_flag:-false}" == true ]] && [[ "${VULN_SCAN:-false}" == true ]]; } || [[ "${P_flag:-false}" == true ]]; then
             echo "Pulling image -- $i"
             docker pull "$i" || true
         fi
