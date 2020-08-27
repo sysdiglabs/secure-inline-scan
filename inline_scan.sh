@@ -378,7 +378,7 @@ post_analysis() {
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
   # shellcheck disable=SC2034
-	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
+	ANCHORE_ACCOUNT=$(grep '"name"' /tmp/sysdig/sysdig_output.log | awk -F'"' '{print $4}')
   # shellcheck disable=SC2016
 	CREATE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
     else
