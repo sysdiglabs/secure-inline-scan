@@ -468,7 +468,7 @@ get_scan_result_with_retries() {
     curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}"
 
     if [[ "${R_flag-""}" ]]; then
-        printf "\nDownloading PDF Scan result for image id: ${SYSDIG_IMAGE_ID} / digest: ${SYSDIG_IMAGE_DIGEST}"
+        printf "\nDownloading PDF Scan result for image id: %s / digest: %s" "${SYSDIG_IMAGE_ID}" "${SYSDIG_IMAGE_DIGEST}"
         get_scan_result_pdf_by_digest
     fi
 
@@ -493,7 +493,7 @@ urlencode() {
     for (( i = 0; i < length; i++ )); do
         local c="${1:i:1}"
         case $c in
-            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            [a-zA-Z0-9.~_-]) printf "%s" "$c" ;;
             *) printf '%%%02X' "'$c"
         esac
     done
