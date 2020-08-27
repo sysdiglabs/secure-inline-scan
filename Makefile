@@ -1,4 +1,4 @@
-.PHONY: major minor patch release build push bump-git bump
+.PHONY: major minor patch release build test push bump-git bump
 
 VERSION=$(shell cat version)
 IMAGE_NAME=sysdiglabs/secure-inline-scan
@@ -40,3 +40,5 @@ shellcheck:
 		--mount type=bind,source=$(PWD)/$(INLINE_SCAN_SCRIPT),target=/$(INLINE_SCAN_SCRIPT) \
 		koalaman/shellcheck \
 		-- /$(INLINE_SCAN_SCRIPT)
+
+test: shellcheck
