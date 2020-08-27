@@ -222,7 +222,7 @@ get_and_validate_analyzer_options() {
 get_and_validate_images() {
     # Add all unique positional input params to IMAGE_NAMES array
     for i in "$@"; do
-        if [[ ! "${IMAGE_NAMES[@]:-}" =~ "$i" ]]; then
+        if [[ ! "${IMAGE_NAMES[*]:-}" =~ $i ]]; then
             IMAGE_NAMES+=("$i")
         fi
     done
@@ -236,7 +236,7 @@ get_and_validate_images() {
 
         docker inspect "$i" &> /dev/null || FAILED_IMAGES+=("$i")
 
-        if [[ ! "${FAILED_IMAGES[@]:-}" =~ "$i" ]]; then
+        if [[ ! "${FAILED_IMAGES[*]:-}" =~ $i ]]; then
             SCAN_IMAGES+=("$i")
         fi
     done
