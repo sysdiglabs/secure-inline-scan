@@ -108,7 +108,7 @@ main() {
     elif [[ "$1" == 'analyze' ]]; then
         shift "$((OPTIND))"
         get_and_validate_analyzer_options "$@"
-        get_and_validate_images "${VALIDATED_OPTIONS}"
+        get_and_validate_images "${VALIDATED_OPTIONS[@]}"
         prepare_inline_container
         CREATE_CMD+=('anchore-manager analyzers exec /anchore-engine/image.tar /tmp/image-analysis-archive.tgz')
         start_analysis
@@ -216,7 +216,7 @@ get_and_validate_analyzer_options() {
         echo "Using temporary path ${TMP_PATH}"
     fi
 
-    VALIDATED_OPTIONS="$@"
+    VALIDATED_OPTIONS=( "$@" )
 }
 
 get_and_validate_images() {
