@@ -32,7 +32,7 @@ SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 SYSDIG_API_TOKEN="test-token"
 MANIFEST_FILE="./manifest.json"
-PDF_DIRECTORY=$(echo "$PWD")
+PDF_DIRECTORY="$PWD"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
 DETAIL=false
@@ -439,9 +439,9 @@ get_repo_digest_id() {
         printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGES[0]}!"
         printf '%s\n' " Consider running with -d option with a valid sha256:<digestID>."
         SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | ${SHASUM_COMMAND} | awk '{ print $1 }' | tr -d "\n")
-        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${SYSDIG_IMAGE_DIGEST}")
+        SYSDIG_IMAGE_DIGEST="sha256:${SYSDIG_IMAGE_DIGEST}"
     else # Use parsed digest from array of digests based on docker inspect result
-        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${REPO_DIGEST}")
+        SYSDIG_IMAGE_DIGEST="sha256:${REPO_DIGEST}"
     fi
 
     printf '\n%s\n' "Repo name: ${REPO}"
