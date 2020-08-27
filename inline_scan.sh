@@ -173,7 +173,8 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${a_flag:-}" ]]; then
         # transform all commas to spaces & cast to an array
-        local annotation_array=(${SYSDIG_ANNOTATIONS//,/ })
+        local annotation_array
+        IFS=" " read -r -a annotation_array <<< "${SYSDIG_ANNOTATIONS//,/ }"
         # get count of = in annotation string
         local number_keys=${SYSDIG_ANNOTATIONS//[^=]}
         # compare number of elements in array with number of = in annotation string
