@@ -143,7 +143,8 @@ get_and_validate_analyzer_options() {
     SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore
     # Check for invalid options
     if [[ ! $(which docker) ]]; then
-        printf '\n\t%s\n\n' 'ERROR - Docker is not installed or cannot be found in $PATH' >&2
+        # shellcheck disable=SC2016
+        printf '\n\t%s %s\n\n' 'ERROR - Docker is not installed or cannot be found in $PATH' >&2
         display_usage_analyzer >&2
         exit 1
     elif [[ "${#@}" -gt 1 ]]; then
@@ -278,9 +279,11 @@ prepare_inline_container() {
     docker pull "${INLINE_SCAN_IMAGE}"
 
     # setup command arrays to eval & run after adding all required options
+    # shellcheck disable=SC2016
     CREATE_CMD=('docker create --name "${DOCKER_NAME}"')
 
     if [[ "${t_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('-e TIMEOUT="${TIMEOUT}"')
     fi
     if [[ "${V_flag-""}" ]]; then
@@ -288,6 +291,7 @@ prepare_inline_container() {
     fi
 
     CREATE_CMD+=('-e ANCHORE_DB_HOST=useless -e ANCHORE_DB_USER=useless -e ANCHORE_DB_PASSWORD=useless')
+    # shellcheck disable=SC2016
     CREATE_CMD+=('"${INLINE_SCAN_IMAGE}"')
 }
 
@@ -342,19 +346,25 @@ start_analysis() {
 }
 
 post_analysis() {
+    # shellcheck disable=SC2016
     CREATE_CMD+=('--digest "${SYSDIG_IMAGE_DIGEST}" --image-id "${SYSDIG_IMAGE_ID}"')
 
     if [[ "${a_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('--annotation "${SYSDIG_ANNOTATIONS},added-by=sysdig-inline-scanner"')
     else
         CREATE_CMD+=('--annotation "added-by=sysdig-inline-scanner"')
     fi
     if [[ "${m_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('--manifest "${MANIFEST_FILE}"')
+        # shellcheck disable=SC2016
         COPY_CMDS+=('docker cp "${MANIFEST_FILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${MANIFEST_FILE})";')
     fi
     if [[ "${f_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('--dockerfile "${DOCKERFILE}"')
+        # shellcheck disable=SC2016
         COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
     fi
 
@@ -368,6 +378,7 @@ post_analysis() {
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
   # shellcheck disable=SC2034
 	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
+  # shellcheck disable=SC2016
 	CREATE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
     else
 	printf '\n\t%s\n\n' "ERROR - unable to fetch account information from anchore-engine for specified user"
@@ -380,6 +391,7 @@ post_analysis() {
     fi
 
 
+    # shellcheck disable=SC2016
     CREATE_CMD+=('--tag "${FULLTAG}"')
     DOCKER_ID=$(eval "${CREATE_CMD[*]}")
     eval "${COPY_CMDS[*]-}"
