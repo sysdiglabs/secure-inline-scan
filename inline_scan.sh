@@ -221,7 +221,7 @@ get_and_validate_analyzer_options() {
 
 get_and_validate_images() {
     # Add all unique positional input params to IMAGE_NAMES array
-    for i in $@; do
+    for i in "$@"; do
         if [[ ! "${IMAGE_NAMES[@]:-}" =~ "$i" ]]; then
             IMAGE_NAMES+=("$i")
         fi
