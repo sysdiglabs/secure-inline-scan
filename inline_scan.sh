@@ -434,7 +434,8 @@ get_repo_digest_id() {
 
     REPO=$(echo "${IMAGE_NAMES[0]}" | rev |  cut -d / -f 2 | rev)
     BASE_IMAGE=$(echo "${IMAGE_NAMES[0]}" | rev | cut -d / -f 1 | rev | cut -d : -f 1)
-    TAG=$(echo "${IMAGE_NAMES[0]}" | rev | cut -d / -f 1 | rev | cut -d : -f 2)
+    TAG=$(echo "${IMAGE_NAMES[0]}" | rev | cut -d / -f 1 | rev | cut -d : -s -f 2)
+
 
     if [[ -z "${TAG// }" ]]; then
         TAG='latest'
