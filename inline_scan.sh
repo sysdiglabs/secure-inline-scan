@@ -11,7 +11,6 @@ set -eou pipefail
 DOCKER_NAME="${RANDOM:-temp}-inline-anchore-engine"
 INLINE_SCAN_IMAGE="${INLINE_SCAN_IMAGE:-}"
 DOCKER_ID=""
-ANALYZE=false
 VULN_SCAN=false
 CREATE_CMD=()
 COPY_CMDS=()
@@ -21,7 +20,7 @@ FAILED_IMAGES=()
 VALIDATED_OPTIONS=""
 # Vuln scan option variable defaults
 DOCKERFILE="./Dockerfile"
-POLICY_BUNDLE="./policy_bundle.json"
+# shellcheck disable=SC2034
 TIMEOUT=300
 TMP_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
@@ -33,7 +32,7 @@ SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
 SYSDIG_API_TOKEN="test-token"
 MANIFEST_FILE="./manifest.json"
-PDF_DIRECTORY=$(echo $PWD)
+PDF_DIRECTORY="$PWD"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
 DETAIL=false
@@ -98,7 +97,7 @@ main() {
     trap 'cleanup' EXIT ERR SIGTERM
     trap 'interupt' SIGINT
 
-    if [[ "$#" -lt 1 ]] || ([[ "$1" != 'analyze' ]] && [[ "$1" != 'help' ]]); then
+    if [[ "$#" -lt 1 ]] || { [[ "$1" != 'analyze' ]] && [[ "$1" != 'help' ]]; }; then
         display_usage >&2
         printf '\n\t%s\n\n' "ERROR - must specify operation ('analyze')" >&2
         exit 1
@@ -108,9 +107,8 @@ main() {
         exit 1
     elif [[ "$1" == 'analyze' ]]; then
         shift "$((OPTIND))"
-        ANALYZE=true
         get_and_validate_analyzer_options "$@"
-        get_and_validate_images "${VALIDATED_OPTIONS}"
+        get_and_validate_images "${VALIDATED_OPTIONS[@]}"
         prepare_inline_container
         CREATE_CMD+=('anchore-manager analyzers exec /anchore-engine/image.tar /tmp/image-analysis-archive.tgz')
         start_analysis
@@ -133,10 +131,10 @@ get_and_validate_analyzer_options() {
             C  ) clean_flag=true;;
             V  ) V_flag=true;;
             R  ) R_flag=true; PDF_DIRECTORY="${OPTARG}";;
-            v  ) v_flag=true; TMP_PATH="${OPTARG}";;
+            v  ) TMP_PATH="${OPTARG}";;
             h  ) display_usage_analyzer; exit;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage_analyzer >&2; exit 1;;
-            :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
+            :  ) printf "\n\t%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage_analyzer >&2; exit 1;;
         esac
     done
     shift "$((OPTIND - 1))"
@@ -145,6 +143,7 @@ get_and_validate_analyzer_options() {
     SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore
     # Check for invalid options
     if [[ ! $(which docker) ]]; then
+        # shellcheck disable=SC2016
         printf '\n\t%s\n\n' 'ERROR - Docker is not installed or cannot be found in $PATH' >&2
         display_usage_analyzer >&2
         exit 1
@@ -174,7 +173,8 @@ get_and_validate_analyzer_options() {
         exit 1
     elif [[ "${a_flag:-}" ]]; then
         # transform all commas to spaces & cast to an array
-        local annotation_array=(${SYSDIG_ANNOTATIONS//,/ })
+        local annotation_array
+        IFS=" " read -r -a annotation_array <<< "${SYSDIG_ANNOTATIONS//,/ }"
         # get count of = in annotation string
         local number_keys=${SYSDIG_ANNOTATIONS//[^=]}
         # compare number of elements in array with number of = in annotation string
@@ -212,31 +212,31 @@ get_and_validate_analyzer_options() {
         exit 1
     else
         TMP_PATH="${TMP_PATH}/sysdig-inline-scan-$(date +%s)"
-        mkdir -p ${TMP_PATH}
+        mkdir -p "${TMP_PATH}"
         echo "Using temporary path ${TMP_PATH}"
     fi
 
-    VALIDATED_OPTIONS="$@"
+    VALIDATED_OPTIONS=( "$@" )
 }
 
 get_and_validate_images() {
     # Add all unique positional input params to IMAGE_NAMES array
-    for i in $@; do
-        if [[ ! "${IMAGE_NAMES[@]:-}" =~ "$i" ]]; then
+    for i in "$@"; do
+        if [[ ! "${IMAGE_NAMES[*]:-}" =~ $i ]]; then
             IMAGE_NAMES+=("$i")
         fi
     done
 
     # Make sure all images are available locally, add to FAILED_IMAGES array if not
     for i in "${IMAGE_NAMES[@]-}"; do
-        if ([[ "${p_flag:-false}" == true ]] && [[ "${VULN_SCAN:-false}" == true ]]) || [[ "${P_flag:-false}" == true ]]; then
+        if { [[ "${p_flag:-false}" == true ]] && [[ "${VULN_SCAN:-false}" == true ]]; } || [[ "${P_flag:-false}" == true ]]; then
             echo "Pulling image -- $i"
-            docker pull $i || true
+            docker pull "$i" || true
         fi
 
         docker inspect "$i" &> /dev/null || FAILED_IMAGES+=("$i")
 
-        if [[ ! "${FAILED_IMAGES[@]:-}" =~ "$i" ]]; then
+        if [[ ! "${FAILED_IMAGES[*]:-}" =~ $i ]]; then
             SCAN_IMAGES+=("$i")
         fi
     done
@@ -262,7 +262,7 @@ prepare_inline_container() {
     if [[ -z "$INLINE_SCAN_IMAGE" ]]; then
         printf 'Retrieving remote Anchore version from Sysdig Secure APIs\n'
         SCANNING_ANCHORE_STATUS=$(curl -sSkf  -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status")
-        INLINE_SCAN_IMAGE_VERSION=$(echo ${SCANNING_ANCHORE_STATUS} | grep -o -E '"version":[ \t]?".*"' | awk -F ":" '{print $2}' | awk -F '"' '{print $2}')
+        INLINE_SCAN_IMAGE_VERSION=$(echo "${SCANNING_ANCHORE_STATUS}" | grep -o -E '"version":[ \t]?".*"' | awk -F ":" '{print $2}' | awk -F '"' '{print $2}')
 
         if [[ -z ${INLINE_SCAN_IMAGE_VERSION} ]]; then
             printf "Failed to retrieve Anchore version from Sysdig Secure APIs. Got response %s \n" "${SCANNING_ANCHORE_STATUS}"
@@ -270,7 +270,7 @@ prepare_inline_container() {
             exit 1
         fi
 
-        printf "Found Anchore version from Sysdig Secure APIs %s" ${INLINE_SCAN_IMAGE_VERSION}
+        printf "Found Anchore version from Sysdig Secure APIs %s" "${INLINE_SCAN_IMAGE_VERSION}"
         INLINE_SCAN_IMAGE="docker.io/anchore/anchore-engine:v${INLINE_SCAN_IMAGE_VERSION}"
     else
         printf 'Using set inline scan image'
@@ -280,9 +280,11 @@ prepare_inline_container() {
     docker pull "${INLINE_SCAN_IMAGE}"
 
     # setup command arrays to eval & run after adding all required options
+    # shellcheck disable=SC2016
     CREATE_CMD=('docker create --name "${DOCKER_NAME}"')
 
     if [[ "${t_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('-e TIMEOUT="${TIMEOUT}"')
     fi
     if [[ "${V_flag-""}" ]]; then
@@ -290,6 +292,7 @@ prepare_inline_container() {
     fi
 
     CREATE_CMD+=('-e ANCHORE_DB_HOST=useless -e ANCHORE_DB_USER=useless -e ANCHORE_DB_PASSWORD=useless')
+    # shellcheck disable=SC2016
     CREATE_CMD+=('"${INLINE_SCAN_IMAGE}"')
 }
 
@@ -306,15 +309,16 @@ start_analysis() {
     FULLTAG="${SCAN_IMAGES[0]}"
 
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        local repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -f 2 -d ":")
-        FULLTAG=$(echo ${FULLTAG} | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+        local repoTag
+        repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -f 2 -d ":")
+        FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         FULLTAG="${FULLTAG}:latest"
     fi
 
     printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
 
-    FULL_IMAGE_NAME=$(docker inspect --format="{{- if .RepoDigests -}}{{index .RepoDigests 0}}{{- else -}}{{- end -}}" ${SCAN_IMAGES[0]} | cut -d "@" -f 1)
+    FULL_IMAGE_NAME=$(docker inspect --format="{{- if .RepoDigests -}}{{index .RepoDigests 0}}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -d "@" -f 1)
     if [[ -z ${FULL_IMAGE_NAME} ]]; then
         # local built image, has not digest and refers to no registry
         FULLTAG="localbuild/${FULLTAG}"
@@ -322,7 +326,7 @@ start_analysis() {
         # switch docker.io vs rest-of-the-world registries
         # using (light) docker rule for naming: if it has a "." or a ":" we assume the image is from some specific registry
         # see: https://github.com/docker/distribution/blob/master/reference/normalize.go#L91
-        IS_DOCKER_IO=$(echo ${FULL_IMAGE_NAME} | grep '\.\|\:' || echo "")
+        IS_DOCKER_IO=$(echo "${FULL_IMAGE_NAME}" | grep '\.\|\:' || echo "")
         if [[ -z ${IS_DOCKER_IO} ]] && [[ ! "${FULLTAG}" =~ ^docker.io* ]]; then
             # Forcing docker.io registry
             FULLTAG="docker.io/${FULLTAG}"
@@ -343,19 +347,25 @@ start_analysis() {
 }
 
 post_analysis() {
+    # shellcheck disable=SC2016
     CREATE_CMD+=('--digest "${SYSDIG_IMAGE_DIGEST}" --image-id "${SYSDIG_IMAGE_ID}"')
 
     if [[ "${a_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('--annotation "${SYSDIG_ANNOTATIONS},added-by=sysdig-inline-scanner"')
     else
         CREATE_CMD+=('--annotation "added-by=sysdig-inline-scanner"')
     fi
     if [[ "${m_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('--manifest "${MANIFEST_FILE}"')
+        # shellcheck disable=SC2016
         COPY_CMDS+=('docker cp "${MANIFEST_FILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${MANIFEST_FILE})";')
     fi
     if [[ "${f_flag-""}" ]]; then
+        # shellcheck disable=SC2016
         CREATE_CMD+=('--dockerfile "${DOCKERFILE}"')
+        # shellcheck disable=SC2016
         COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
     fi
 
@@ -367,7 +377,9 @@ post_analysis() {
     fi
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "/tmp/sysdig/sysdig_output.log" ]]; then
-	ANCHORE_ACCOUNT=$(cat /tmp/sysdig/sysdig_output.log | grep '"name"' | awk -F'"' '{print $4}')
+  # shellcheck disable=SC2034
+	ANCHORE_ACCOUNT=$(grep '"name"' /tmp/sysdig/sysdig_output.log | awk -F'"' '{print $4}')
+  # shellcheck disable=SC2016
 	CREATE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
     else
 	printf '\n\t%s\n\n' "ERROR - unable to fetch account information from anchore-engine for specified user"
@@ -380,6 +392,7 @@ post_analysis() {
     fi
 
 
+    # shellcheck disable=SC2016
     CREATE_CMD+=('--tag "${FULLTAG}"')
     DOCKER_ID=$(eval "${CREATE_CMD[*]}")
     eval "${COPY_CMDS[*]-}"
@@ -403,7 +416,7 @@ post_analysis() {
     HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
 
 	if [[ "${HCODE}" != 200 ]]; then
-	    printf '\n\t%s\n\n' "ERROR - unable to POST ${analysis_archive_name} to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
+	    printf '\n\t%s\n\n' "ERROR - unable to POST image metadata to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
 	    if [ -f /tmp/sysdig/sysdig_output.log ]; then
 		printf '%s\n\n' "***SERVICE RESPONSE****">&2
 		cat /tmp/sysdig/sysdig_output.log >&2
@@ -419,9 +432,10 @@ get_repo_digest_id() {
     # Check to see if repo digest exists
     DIGESTS=$(docker inspect --format="{{.RepoDigests}}" "${SCAN_IMAGES[0]}")
 
-    REPO=$(echo ${IMAGE_NAMES[0]} | rev |  cut -d / -f 2 | rev)
-    BASE_IMAGE=$(echo ${IMAGE_NAMES[0]} | rev | cut -d / -f 1 | rev | cut -d : -f 1)
-    TAG=$(echo ${IMAGE_NAMES[0]} | rev | cut -d / -f 1 | rev | cut -d : -s -f 2)
+    REPO=$(echo "${IMAGE_NAMES[0]}" | rev |  cut -d / -f 2 | rev)
+    BASE_IMAGE=$(echo "${IMAGE_NAMES[0]}" | rev | cut -d / -f 1 | rev | cut -d : -f 1)
+    TAG=$(echo "${IMAGE_NAMES[0]}" | rev | cut -d / -f 1 | rev | cut -d : -s -f 2)
+
 
     if [[ -z "${TAG// }" ]]; then
         TAG='latest'
@@ -430,7 +444,7 @@ get_repo_digest_id() {
     for DIGEST in "${DIGESTS[@]}"
     do
         if [[ ${DIGEST} == *"${REPO}/${BASE_IMAGE}:${TAG}"* || ${DIGEST} == *"${REPO}/${BASE_IMAGE}"* || ${DIGEST} == *"${BASE_IMAGE}"* ]]; then
-            REPO_DIGEST=$(echo ${DIGEST} | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
+            REPO_DIGEST=$(echo "${DIGEST}" | rev | cut -d : -f 1 | rev | tr -d ']' | cut -d ' ' -f 1)
         fi
     done
 
@@ -439,9 +453,9 @@ get_repo_digest_id() {
         printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGES[0]}!"
         printf '%s\n' " Consider running with -d option with a valid sha256:<digestID>."
         SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGES[0]}" | ${SHASUM_COMMAND} | awk '{ print $1 }' | tr -d "\n")
-        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${SYSDIG_IMAGE_DIGEST}")
+        SYSDIG_IMAGE_DIGEST="sha256:${SYSDIG_IMAGE_DIGEST}"
     else # Use parsed digest from array of digests based on docker inspect result
-        SYSDIG_IMAGE_DIGEST=$(echo "sha256:${REPO_DIGEST}")
+        SYSDIG_IMAGE_DIGEST="sha256:${REPO_DIGEST}"
     fi
 
     printf '\n%s\n' "Repo name: ${REPO}"
@@ -455,7 +469,7 @@ get_scan_result_code() {
 
 get_scan_result_with_retries() {
     # Fetching the result of each scanned digest
-    for ((i=0;  i<${GET_CALL_RETRIES}; i++)); do
+    for ((i=0;  i < GET_CALL_RETRIES; i++)); do
         get_scan_result_code
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
             status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
@@ -468,7 +482,7 @@ get_scan_result_with_retries() {
     curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}"
 
     if [[ "${R_flag-""}" ]]; then
-        printf "\nDownloading PDF Scan result for image id: ${SYSDIG_IMAGE_ID} / digest: ${SYSDIG_IMAGE_DIGEST}"
+        printf "\nDownloading PDF Scan result for image id: %s / digest: %s" "${SYSDIG_IMAGE_ID}" "${SYSDIG_IMAGE_DIGEST}"
         get_scan_result_pdf_by_digest
     fi
 
@@ -493,7 +507,7 @@ urlencode() {
     for (( i = 0; i < length; i++ )); do
         local c="${1:i:1}"
         case $c in
-            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            [a-zA-Z0-9.~_-]) printf "%s" "$c" ;;
             *) printf '%%%02X' "'$c"
         esac
     done
@@ -508,7 +522,7 @@ print_scan_result_summary_message() {
     fi
 
     if [[ -z "${clean_flag:-}" ]]; then
-        ENCODED_TAG=$(urlencode ${FULLTAG})
+        ENCODED_TAG=$(urlencode "${FULLTAG}")
         if [[ "${o_flag:-}" ]]; then
             echo "View the full result @ ${SYSDIG_BASE_SCANNING_URL}/secure/#/scanning/scan-results/${ENCODED_TAG}/${SYSDIG_IMAGE_DIGEST}/summaries"
         else
@@ -524,12 +538,15 @@ get_scan_result_pdf_by_digest() {
 }
 
 save_and_copy_images() {
-    local base_image_name=$(echo ${FULLTAG} | rev | cut -d '/' -f 1 | rev )
+    local base_image_name
+    base_image_name=$(echo "${FULLTAG}" | rev | cut -d '/' -f 1 | rev )
     echo "Saving ${base_image_name} for local analysis"
     save_file_name="${base_image_name}.tar"
-    local save_file_path="${TMP_PATH}/${save_file_name}"
+    local save_file_path
+    save_file_path="${TMP_PATH}/${save_file_name}"
 
-    local image_name=$(echo ${SCAN_IMAGES[0]} | rev | cut -d '/' -f 1 | rev )
+    local image_name
+    image_name=$(echo "${SCAN_IMAGES[0]}" | rev | cut -d '/' -f 1 | rev )
     if [[ ! "${image_name}" =~ [:]+ ]]; then
         docker save "${SCAN_IMAGES[0]}:latest" -o "${save_file_path}"
     else
