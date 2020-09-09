@@ -473,6 +473,7 @@ get_scan_result_with_retries() {
         get_scan_result_code
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
             status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
+            status=$(echo "${status}" | tr -d '\n')
             break
         fi
         echo -n "." && sleep 1
