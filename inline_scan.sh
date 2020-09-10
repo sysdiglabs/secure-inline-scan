@@ -24,7 +24,7 @@ DOCKERFILE="./Dockerfile"
 TIMEOUT=300
 TMP_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
-SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
+SYSDIG_BASE_SCANNING_URL="https://api.sysdigcloud.com"
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
 SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS="foo=bar"
