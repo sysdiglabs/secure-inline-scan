@@ -24,7 +24,7 @@ DOCKERFILE="./Dockerfile"
 TIMEOUT=300
 TMP_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
-SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
+SYSDIG_BASE_SCANNING_URL="https://api.sysdigcloud.com"
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
 SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS="foo=bar"
@@ -412,11 +412,27 @@ post_analysis() {
         exit 1
     fi
 
-    # Posting the archive to the secure backend
-    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
+    # Posting the archive to the secure backend (sync import)
+    printf '%s\n' " Calling sync import endpoint"
+    HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/sync/import/images")
 
 	if [[ "${HCODE}" != 200 ]]; then
-	    printf '\n\t%s\n\n' "ERROR - unable to POST image metadata to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
+        if [[ "${HCODE}" == 404 ]]; then
+            # Posting the archive to the secure backend (async import)
+            printf '%s\n' " Calling async import endpoint"
+            HCODE=$(curl -sSk --output /tmp/sysdig/sysdig_output.log --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
+            if [[ "${HCODE}" != 200 ]]; then
+                printf '\n\t%s\n\n' "ERROR - unable to POST image metadata to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
+                if [ -f /tmp/sysdig/sysdig_output.log ]; then
+                printf '%s\n\n' "***SERVICE RESPONSE****">&2
+                cat /tmp/sysdig/sysdig_output.log >&2
+                printf '\n%s\n' "***END SERVICE RESPONSE****" >&2
+                fi
+                exit 1
+            fi
+            return
+        fi
+	    printf '\n\t%s\n\n' "ERROR - unable to POST image metadata to ${SYSDIG_SCANNING_URL%%/}/sync/import/images" >&2
 	    if [ -f /tmp/sysdig/sysdig_output.log ]; then
 		printf '%s\n\n' "***SERVICE RESPONSE****">&2
 		cat /tmp/sysdig/sysdig_output.log >&2
