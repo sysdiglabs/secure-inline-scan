@@ -411,6 +411,7 @@ post_analysis() {
 # with the image id as much as possible, instead of generating our own digest or via skopeo.
 get_repo_digest_id() {
 
+    #TODO: Is this correct? See https://github.com/sysdiglabs/secure-inline-scan/issues/55
     REPO=$(echo "${SCAN_IMAGE}" | rev |  cut -d / -f 2 | rev)
     BASE_IMAGE=$(echo "${SCAN_IMAGE}" | rev | cut -d / -f 1 | rev | cut -d : -f 1)
     TAG=$(echo "${SCAN_IMAGE}" | rev | cut -d / -f 1 | rev | cut -s -d : -f 2)
