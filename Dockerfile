@@ -1,8 +1,9 @@
-FROM docker:18-dind
+FROM anchore/anchore-engine:v0.7.3
 
-MAINTAINER Sysdig
+USER root
 
-RUN apk --no-cache add curl bash
-COPY inline_scan.sh /bin/inline_scan.sh
+RUN curl https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -L -o /usr/local/bin/jq && chmod +x /usr/local/bin/jq
 
-ENTRYPOINT ["/bin/inline_scan.sh"]
+COPY files/ /
+
+ENTRYPOINT ["/sysdig-inline-scan.sh"]
