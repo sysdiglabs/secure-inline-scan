@@ -4,9 +4,10 @@ set -eou pipefail
 
 #TODO:
 # - Previous inline-scan.sh downloaded the same anchore/anchore-engine version to match the backend version. Might this be an issue?
-# - We do the pulling / conversion before checking if already scanned. Inspect before pulling?
-# - Use skopeo inspect before the copy, using the source, to get the correct digest before conversions?
+# - Add a --json or similar option to do all the output in valid JSON format that can be processed and automated (i.e. for Jenkins plugin)
+# - We do the pulling / conversion before checking if already scanned. Inspect before pulling / converting?
 # - Check digest calculation when there is no RepoDigest
+# - Check Image ID different from OCI config than docker Config 
 
 ########################
 ### GLOBAL VARIABLES ###
@@ -103,7 +104,7 @@ main() {
         exit 1
     else
         get_and_validate_analyzer_options "$@"
-        get_and_validate_image "${VALIDATED_OPTIONS[@]}"
+        convert_image "${VALIDATED_OPTIONS[@]}"
         start_analysis
     fi
 }
@@ -209,7 +210,7 @@ get_and_validate_analyzer_options() {
     VALIDATED_OPTIONS=( "$@" )
 }
 
-get_and_validate_image() {
+convert_image() {
 
     # Skopeo requires specifying a tag
     TAG=$(echo "$1" | cut -d : -s -f 2)
@@ -223,27 +224,32 @@ get_and_validate_image() {
     # Make sure image is available locally, add to FAILED_IMAGES array if not
     if [[ "${T_flag:-false}" == true ]]; then
         echo "Getting image from Docker archive file -- ${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect --raw docker-archive:"${IMAGE_NAME}")
         skopeo copy docker-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${O_flag:-false}" == true ]]; then
         echo "Getting image from OCI archive file -- ${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect --raw oci-archive:"${IMAGE_NAME}")
         skopeo copy oci-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${D_flag:-false}" == true ]]; then
         echo "Getting image from OCI directory -- ${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect --raw oci:"${IMAGE_NAME}")
         skopeo copy oci:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${C_flag:-false}" == true ]]; then
         echo "Getting image from container-storage -- ${IMAGE_NAME}"
-        skopeo copy contaier-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect --raw container-storage:"${IMAGE_NAME}")
+        skopeo copy container-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
         echo "Pulling image -- ${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect --raw docker://"${IMAGE_NAME}")
         skopeo copy docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     else
         echo "Getting image from Docker daemon -- ${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect --raw docker-daemon:"${IMAGE_NAME}")
         skopeo copy docker-daemon:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     fi 
 
-    # echo "Validating image -- ${IMAGE_NAME}"
-    # skopeo inspect oci:${TMP_PATH}/oci-image &> /dev/null || FAILED_IMAGES+=("${IMAGE_NAME}")
-    # echo "Validated"
+    # Calculate "repo digest" from the RAW manifest
+    REPO_DIGEST=$(echo -n "${MANIFEST}" | ${SHASUM_COMMAND} | cut -d ' ' -f 1)
 
     SCAN_IMAGE=$1
 }
@@ -273,7 +279,7 @@ start_analysis() {
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
         local repoTag
         #repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -f 2 -d ":")
-        repoTag=$(skopeo inspect oci:"${TMP_PATH}"/oci-image | jq -r .RepoTags[0])
+        repoTag=$(skopeo inspect oci:"${TMP_PATH}"/oci-image | jq -r '.RepoTags[0] // empty' )
         #TODO: "latest" as default? should we use "sysdig-line-scan"?
         FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
@@ -422,8 +428,6 @@ get_repo_digest_id() {
         TAG='latest'
     fi
 
-    REPO_DIGEST=$(skopeo inspect oci:"${TMP_PATH}"/oci-image | jq -r .Digest | cut -d : -f 2)
-
     # Generate Image digest ID for given image, if repo digest is not present
     if [[ -z "${REPO_DIGEST:-}" ]]; then
         printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGE}!"
@@ -435,7 +439,9 @@ get_repo_digest_id() {
     fi
 
     printf '\n%s\n' "Repo name: ${REPO}"
+    #TODO(airadier): Not working correctly for @sha256:xxxx notation
     printf '%s\n' "Base image name: ${BASE_IMAGE}"
+    #TODO(airadier): Not working correctly for @sha256:xxxx notation
     printf '%s\n\n' "Tag name: ${TAG}"
     printf '%s\n\n' "Repo digest: ${SYSDIG_IMAGE_DIGEST}"
 }
