@@ -18,6 +18,7 @@ DOCKERFILE="./Dockerfile"
 TMP_PATH="/tmp/sysdig"
 # Analyzer option variable defaults
 SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
+SYSDIG_BASE_SCANNING_API_URL="https://api.sysdigcloud.com"
 SYSDIG_SCANNING_URL="http://localhost:9040/api/scanning"
 SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS="foo=bar"
@@ -101,11 +102,6 @@ main() {
     else
         get_and_validate_analyzer_options "$@"
         get_and_validate_image "${VALIDATED_OPTIONS[@]}"
-        export ANCHORE_DB_HOST=x
-        export ANCHORE_DB_USER=x
-        export ANCHORE_DB_PASSWORD=x 
-        # shellcheck disable=SC2016
-        ANALYZE_CMD+=('anchore-manager analyzers exec ${TMP_PATH}/oci-image ${TMP_PATH}/image-analysis-archive.tgz')
         start_analysis
     fi
 }
@@ -115,7 +111,7 @@ get_and_validate_analyzer_options() {
     while getopts ':k:s:a:f:i:d:m:ocvr:hTODCP' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
-            s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";;
+            s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
             a  ) a_flag=true; SYSDIG_ANNOTATIONS="${OPTARG}";;
             f  ) f_flag=true; DOCKERFILE="${OPTARG}";;
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
@@ -137,7 +133,7 @@ get_and_validate_analyzer_options() {
     done
     shift "$((OPTIND - 1))"
 
-    SYSDIG_SCANNING_URL="${SYSDIG_BASE_SCANNING_URL}"/api/scanning/v1
+    SYSDIG_SCANNING_URL="${SYSDIG_BASE_SCANNING_API_URL}"/api/scanning/v1
     SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore
     # Check for invalid options
     if [[ ! $(which skopeo) ]]; then
@@ -316,6 +312,13 @@ start_analysis() {
 }
 
 post_analysis() {
+    export ANCHORE_DB_HOST=x
+    export ANCHORE_DB_USER=x
+    export ANCHORE_DB_PASSWORD=x 
+
+    # shellcheck disable=SC2016
+    ANALYZE_CMD+=('anchore-manager analyzers exec ${TMP_PATH}/oci-image ${TMP_PATH}/image-analysis-archive.tgz')
+
     # shellcheck disable=SC2016
     ANALYZE_CMD+=('--digest "${SYSDIG_IMAGE_DIGEST}" --image-id "${SYSDIG_IMAGE_ID}"')
 
@@ -344,18 +347,18 @@ post_analysis() {
     fi
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "${TMP_PATH}/sysdig_output.log" ]]; then
-    # shellcheck disable=SC2034
-    ANCHORE_ACCOUNT=$(grep '"name"' "${TMP_PATH}/sysdig_output.log" | awk -F'"' '{print $4}')
-    # shellcheck disable=SC2016
-	ANALYZE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
+        # shellcheck disable=SC2034
+        ANCHORE_ACCOUNT=$(grep '"name"' "${TMP_PATH}/sysdig_output.log" | awk -F'"' '{print $4}')
+        # shellcheck disable=SC2016
+	    ANALYZE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
     else
-	printf '\n\t%s\n\n' "ERROR - unable to fetch account information from anchore-engine for specified user"
-	if [[ -f ${TMP_PATH}/sysdig_output.log ]]; then
-	    printf '%s\n\n' "***SERVICE RESPONSE****">&2
-	    cat "${TMP_PATH}"/sysdig_output.log >&2
-	    printf '\n%s\n' "***END SERVICE RESPONSE****" >&2
-	fi
-	exit 1
+        printf '\n\t%s\n\n' "ERROR - unable to fetch account information from anchore-engine for specified user"
+        if [[ -f ${TMP_PATH}/sysdig_output.log ]]; then
+            printf '%s\n\n' "***SERVICE RESPONSE****">&2
+            cat "${TMP_PATH}"/sysdig_output.log >&2
+            printf '\n%s\n' "***END SERVICE RESPONSE****" >&2
+        fi
+        exit 1
     fi
 
     # shellcheck disable=SC2016
@@ -363,9 +366,6 @@ post_analysis() {
 
     echo
     eval "${ANALYZE_CMD[*]}"
-
-    # Copying files manually because volumes can't be trusted to work in docker-in-docker environments
-#    docker cp -a "${DOCKER_NAME}:${TMP_PATH}/image-analysis-archive.tgz" "${TMP_PATH}/image-analysis-archive.tgz"
 
     if [[ -f "${TMP_PATH}/image-analysis-archive.tgz" ]]; then
         printf '%s\n' " Analysis complete!"
