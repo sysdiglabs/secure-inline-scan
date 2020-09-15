@@ -5,6 +5,8 @@ set -eou pipefail
 #TODO:
 # - Previous inline-scan.sh downloaded the same anchore/anchore-engine version to match the backend version. Might this be an issue?
 # - We do the pulling / conversion before checking if already scanned. Inspect before pulling?
+# - Use skopeo inspect before the copy, using the source, to get the correct digest before conversions?
+# - Check digest calculation when there is no RepoDigest
 
 ########################
 ### GLOBAL VARIABLES ###
