@@ -1,0 +1,36 @@
+name: Build & Test
+
+on:
+  push:
+    paths-ignore:
+      - 'docs_template/**'
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs_template/**'
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: sysdiglabs/sysdig-inline-scan
+
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Test
+      run: make test
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v1
+      with:
+        username: ${{ secrets.SYSDIGLABS_DOCKERHUB_USER }}
+        password: ${{ secrets.SYSDIGLABS_DOCKERHUB_TOKEN }}
+        repository: sysdiglabs/sysdig-inline-scan
+        add_git_labels: true
+        dockerfile: build/Dockerfile
+        tags: ci
