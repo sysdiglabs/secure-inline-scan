@@ -7,7 +7,7 @@ set -eou pipefail
 # - Add a --json or similar option to do all the output in valid JSON format that can be processed and automated (i.e. for Jenkins plugin)
 # - We do the pulling / conversion before checking if already scanned. Inspect before pulling / converting?
 # - Check digest calculation when there is no RepoDigest
-# - Check Image ID different from OCI config than docker Config 
+# - Check Image ID (SYSDIG_IMAGE_ID) different from OCI config than docker Config 
 
 ########################
 ### GLOBAL VARIABLES ###
@@ -225,28 +225,39 @@ convert_image() {
     if [[ "${T_flag:-false}" == true ]]; then
         echo "Getting image from Docker archive file -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw docker-archive:"${IMAGE_NAME}")
+        INSPECT=$(skopeo inspect docker-archive:"${IMAGE_NAME}")
         skopeo copy docker-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${O_flag:-false}" == true ]]; then
         echo "Getting image from OCI archive file -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw oci-archive:"${IMAGE_NAME}")
+        INSPECT=$(skopeo inspect oci-archive:"${IMAGE_NAME}")
         skopeo copy oci-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${D_flag:-false}" == true ]]; then
         echo "Getting image from OCI directory -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw oci:"${IMAGE_NAME}")
+        INSPECT=$(skopeo inspect oci:"${IMAGE_NAME}")
         skopeo copy oci:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${C_flag:-false}" == true ]]; then
         echo "Getting image from container-storage -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw container-storage:"${IMAGE_NAME}")
+        INSPECT=$(skopeo inspect container-storage:"${IMAGE_NAME}")
         skopeo copy container-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
         echo "Pulling image -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw docker://"${IMAGE_NAME}")
+        INSPECT=$(skopeo inspect docker://"${IMAGE_NAME}")
         skopeo copy docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     else
         echo "Getting image from Docker daemon -- ${IMAGE_NAME}"
+        #Make sure 'anchore' user can access the docker sock
+        sudo /usr/bin/chgrp anchore /var/run/docker.sock
         MANIFEST=$(skopeo inspect --raw docker-daemon:"${IMAGE_NAME}")
+        INSPECT=$(skopeo inspect docker-daemon:"${IMAGE_NAME}")
         skopeo copy docker-daemon:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     fi 
+
+    FULL_IMAGE_NAME=$(echo -n "${INSPECT}" | jq -r .Name)
+    REPO_TAG=$(echo -n "${INSPECT}" | jq -r '.RepoTags[0] // empty')
 
     # Calculate "repo digest" from the RAW manifest
     REPO_DIGEST=$(echo -n "${MANIFEST}" | ${SHASUM_COMMAND} | cut -d ' ' -f 1)
@@ -265,34 +276,26 @@ start_analysis() {
 
     #TODO: Skopeo does not provide IMAGE_ID, and /import/images does not support it. Sysdig specific? How can we replace it?
     if [[ ! "${i_flag-""}" ]]; then
-        # Probably this works
+        # Probably this works, but the OCI config digest will differ from the docker config digest
         SYSDIG_IMAGE_ID=$(skopeo inspect --raw oci:"${TMP_PATH}"/oci-image | jq -r .config.digest | cut -f2 -d ":" )
     fi
 
     if [[ ! "${d_flag-""}" ]]; then
-        get_repo_digest_id
+        SYSDIG_IMAGE_DIGEST="sha256:${REPO_DIGEST}"
     fi
 
     FULLTAG="${SCAN_IMAGE}"
 
-    #TODO: How do we do this with Skopeo? RepoTags comes empty
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        local repoTag
-        #repoTag=$(docker inspect --format="{{- if .RepoTags -}}{{ index .RepoTags 0 }}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -f 2 -d ":")
-        repoTag=$(skopeo inspect oci:"${TMP_PATH}"/oci-image | jq -r '.RepoTags[0] // empty' )
         #TODO: "latest" as default? should we use "sysdig-line-scan"?
-        FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${repoTag:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+        FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         #TODO: "latest" as default? should we use "sysdig-line-scan"?
         FULLTAG="${FULLTAG}:latest"
     fi
 
-    printf '%s\n\n' "Image id: ${SYSDIG_IMAGE_ID}"
-
     #TODO: Check that case for local build images (no registry) works, and localbuild/ is added
-    #FULL_IMAGE_NAME=$(docker inspect --format="{{- if .RepoDigests -}}{{index .RepoDigests 0}}{{- else -}}{{- end -}}" "${SCAN_IMAGES[0]}" | cut -d "@" -f 1)
-    FULL_IMAGE_NAME=$(skopeo inspect oci:"${TMP_PATH}"/oci-image | jq -r .Name)
-    if [[ -z ${FULL_IMAGE_NAME} ]]; then
+    if [[ -z ${REPO_TAG} ]]; then
         # local built image, has not digest and refers to no registry
         FULLTAG="localbuild/${FULLTAG}"
     else
@@ -306,20 +309,24 @@ start_analysis() {
         else
             FULLTAG="${FULLTAG}"
         fi
-
     fi
 
-    echo "using full image name: ${FULLTAG}"
+    printf '%s\n' "Image id: ${SYSDIG_IMAGE_ID}"
+    printf '%s\n' "Repo digest: ${SYSDIG_IMAGE_DIGEST}"
+    printf '%s\n' "using full image name: ${FULLTAG}"
+
     get_scan_result_code
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
+        perform_analysis
         post_analysis
     else
         echo "Image digest found on Sysdig Secure, skipping analysis."
     fi
+
     get_scan_result_with_retries
 }
 
-post_analysis() {
+perform_analysis() {
     export ANCHORE_DB_HOST=x
     export ANCHORE_DB_USER=x
     export ANCHORE_DB_PASSWORD=x 
@@ -383,6 +390,9 @@ post_analysis() {
         display_usage >&2
         exit 1
     fi
+}
+
+post_analysis() {
 
     # Posting the archive to the secure backend (sync import)
     printf '%s\n' " Calling sync import endpoint"
@@ -413,37 +423,6 @@ post_analysis() {
 	    exit 1
 	fi
 
-}
-
-# This is done instead of the -g option, as we want to tie the RepoDigest value present in the image
-# with the image id as much as possible, instead of generating our own digest or via skopeo.
-get_repo_digest_id() {
-
-    #TODO: Is this correct? See https://github.com/sysdiglabs/secure-inline-scan/issues/55
-    REPO=$(echo "${SCAN_IMAGE}" | rev |  cut -d / -f 2 | rev)
-    BASE_IMAGE=$(echo "${SCAN_IMAGE}" | rev | cut -d / -f 1 | rev | cut -d : -f 1)
-    TAG=$(echo "${SCAN_IMAGE}" | rev | cut -d / -f 1 | rev | cut -s -d : -f 2)
-
-    if [[ -z "${TAG// }" ]]; then
-        TAG='latest'
-    fi
-
-    # Generate Image digest ID for given image, if repo digest is not present
-    if [[ -z "${REPO_DIGEST:-}" ]]; then
-        printf '%s\n' " Unable to compute the digest from docker inspect ${SCAN_IMAGE}!"
-        printf '%s\n' " Consider running with -d option with a valid sha256:<digestID>."
-        SYSDIG_IMAGE_DIGEST=$(docker inspect "${SCAN_IMAGE}" | ${SHASUM_COMMAND} | awk '{ print $1 }' | tr -d "\n")
-        SYSDIG_IMAGE_DIGEST="sha256:${SYSDIG_IMAGE_DIGEST}"
-    else # Use parsed digest from array of digests based on docker inspect result
-        SYSDIG_IMAGE_DIGEST="sha256:${REPO_DIGEST}"
-    fi
-
-    printf '\n%s\n' "Repo name: ${REPO}"
-    #TODO(airadier): Not working correctly for @sha256:xxxx notation
-    printf '%s\n' "Base image name: ${BASE_IMAGE}"
-    #TODO(airadier): Not working correctly for @sha256:xxxx notation
-    printf '%s\n\n' "Tag name: ${TAG}"
-    printf '%s\n\n' "Repo digest: ${SYSDIG_IMAGE_DIGEST}"
 }
 
 get_scan_result_code() {
