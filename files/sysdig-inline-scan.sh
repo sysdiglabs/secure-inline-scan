@@ -136,6 +136,11 @@ get_and_validate_analyzer_options() {
     done
     shift "$((OPTIND - 1))"
 
+    if [[ "${v_flag:-}" ]]; then
+        DETAIL=true
+        set -x
+    fi
+
     SYSDIG_SCANNING_URL="${SYSDIG_BASE_SCANNING_API_URL}"/api/scanning/v1
     SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore
     # Check for invalid options
@@ -196,11 +201,6 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - must specify file path - ${PDF_DIRECTORY} without trailing slash" >&2
         display_usage >&2
         exit 1
-    fi
-
-    if [[ "${v_flag:-}" ]]; then
-        DETAIL=true
-        set -x
     fi
 
     TMP_PATH="${TMP_PATH}/sysdig-inline-scan-$(date +%s)"
@@ -274,9 +274,8 @@ find_image_error() {
 
 start_analysis() {
 
-    #TODO: Skopeo does not provide IMAGE_ID, and /import/images does not support it. Sysdig specific? How can we replace it?
     if [[ ! "${i_flag-""}" ]]; then
-        # Probably this works, but the OCI config digest will differ from the docker config digest
+        #TODO(airadier): Probably this works, but the OCI config digest will differ from the docker config digest
         SYSDIG_IMAGE_ID=$(skopeo inspect --raw oci:"${TMP_PATH}"/oci-image | jq -r .config.digest | cut -f2 -d ":" )
     fi
 
@@ -363,7 +362,7 @@ perform_analysis() {
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "${TMP_PATH}/sysdig_output.log" ]]; then
         # shellcheck disable=SC2034
-        ANCHORE_ACCOUNT=$(grep '"name"' "${TMP_PATH}/sysdig_output.log" | awk -F'"' '{print $4}')
+        ANCHORE_ACCOUNT=$(jq -r '.name' "${TMP_PATH}/sysdig_output.log")
         # shellcheck disable=SC2016
 	    ANALYZE_CMD+=('--account-id "${ANCHORE_ACCOUNT}"')
     else
@@ -434,8 +433,7 @@ get_scan_result_with_retries() {
     for ((i=0;  i < GET_CALL_RETRIES; i++)); do
         get_scan_result_code
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
-            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
-            status=$(echo "${status}" | tr -d '\n')
+            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | jq -r ".[0][\"${SYSDIG_IMAGE_DIGEST}\"][\"${FULLTAG}\"][0].status")
             break
         fi
         echo -n "." && sleep 1
