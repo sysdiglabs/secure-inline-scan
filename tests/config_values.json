@@ -1,0 +1,6 @@
+{
+    "image": {
+        "repo": "sysdiglabs/sysdig-inline-scan",
+        "tag": "ci"
+    }
+}

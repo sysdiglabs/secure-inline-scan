@@ -22,8 +22,16 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
 
-    - name: Test
-      run: make test
+    - name: Setup python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install pipenv
+      run: pip install pipenv==2018.11.26
+
+    - name: Run shellcheck tests
+      run: make shellcheck
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v1
@@ -34,3 +42,8 @@ jobs:
         add_git_labels: true
         dockerfile: Dockerfile
         tags: ci
+        push: false
+
+    - name: Run container tests
+      run: make unittests
+

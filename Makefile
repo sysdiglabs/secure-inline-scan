@@ -46,4 +46,7 @@ shellcheck:
 		koalaman/shellcheck \
 		-- /$(ENTRYPOINT_SCRIPT)
 
-test: shellcheck
+unittests:
+	$(MAKE) -C tests
+
+test: shellcheck unittests
