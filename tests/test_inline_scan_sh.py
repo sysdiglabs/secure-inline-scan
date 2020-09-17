@@ -15,6 +15,7 @@ CONFIG_FILE = 'config_values.json'
 
 run_command = functools.partial(invoke.run, hide=True)
 
+
 class AccessType(Enum):
     GRANTED = 1
     DENIED = 2
@@ -28,12 +29,13 @@ def create_local_image(image_name=None):
     run_command(command, in_stream=StringIO(("FROM busybox\nRUN echo '{}'").format(id_)))
     return image_name
 
+
 class InlineScanShellScript(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.config = cls._load_config(CONFIG_FILE)
-        
+
         image_repo = cls.config['image']['repo']
         image_tag = cls.config['image']['tag']
 
@@ -42,7 +44,9 @@ class InlineScanShellScript(unittest.TestCase):
 
         cls.local_image_name_with_tag = create_local_image()
 
-        cls.inline_scan = InlineScan("http://localhost:{}".format(cls.server.port), "faketoken", image_repo, image_tag)
+        cls.inline_scan = InlineScan(
+            "http://localhost:{}".format(cls.server.port),
+            "faketoken", image_repo, image_tag)
 
     @staticmethod
     def _load_config(config_file):
@@ -72,7 +76,7 @@ class InlineScanShellScript(unittest.TestCase):
 
     def test_scan_image_by_digest(self):
         self.server.init_test(report_result="pass")
-        image_name = "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"
+        image_name = "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"  # noqa: E501
         process_result = self.inline_scan(image_name, pull=True)
         scan_result = self.check_output(
             process_result.stdout,

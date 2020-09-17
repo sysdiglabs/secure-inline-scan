@@ -1,14 +1,11 @@
 import invoke
-import json
-import os
 import platform
-import requests
-import urllib3
 
 LOGIN_ENDPOINT = '/api/login'
 TOKEN_ENDPOINT = '/api/token'
 TEAMS_ENDPOINT = "/api/teams/light"
 ANCHORE_IMAGES_ENDPOINT = '/api/scanning/v1/anchore/images'
+
 
 class InlineScan:
 
@@ -28,7 +25,8 @@ class InlineScan:
             'content-type': 'application/json',
         }
 
-    def __call__(self, image, url=None, token=None, pull=False, clean_flag=False, volume="", omit_token=False):
+    def __call__(self, image, url=None, token=None, pull=False,
+                 clean_flag=False, volume="", omit_token=False):
         if not url:
             if platform.system() == 'Darwin':
                 # Hack for docker in Mac
@@ -37,8 +35,12 @@ class InlineScan:
                 url = self.url
         if not token:
             token = self.token
-        cmdline = ["docker", "run", "--rm", "--network", "host", "-v", "/var/run/docker.sock:/var/run/docker.sock {}:{}".format(self.image_repo, self.image_tag), "-s", url]
-        
+        cmdline = ["docker", "run", "--rm", "--network", "host",
+                   "-v", "/var/run/docker.sock:/var/run/docker.sock {}:{}".format(
+                       self.image_repo,
+                       self.image_tag),
+                   "-s", url]
+
         if not omit_token:
             cmdline.append('-k')
             cmdline.append(token)

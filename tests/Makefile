@@ -7,7 +7,8 @@ clean:
 	find . -name '*-inline-scan.xml' -exec rm -f {} +
 
 lint:
-	flake8
+	pipenv install -d
+	pipenv run flake8
 
 runtests:
 	pipenv install -d

@@ -22,15 +22,28 @@ class MockServer(Thread):
         self.add_json_response("/api/scanning/v1/anchore/status", dict())
         self.add_json_response("/api/scanning/v1/account", dict(name="tenant_fake"))
         self.add_json_response("/api/scanning/v1/anchore/account", dict(name="tenant_fake"))
-        self.add_callback_response("/api/scanning/v1/sync/import/images", self.handle_import, methods=('POST',))
-        self.add_callback_response("/api/scanning/v1/import/images", self.handle_import, methods=('POST',))
-        self.add_callback_response("/api/scanning/v1/anchore/images/<digest>/check", self.handle_images)
-        self.add_callback_response("/<path:path>", self.catch_all, methods=('GET', 'POST', 'DELETE'))
-        self.add_callback_response("/api/scanning/v1/anchore/images/<digest>", self.handle_image_delete, methods=('DELETE',))
+        self.add_callback_response(
+            "/api/scanning/v1/sync/import/images",
+            self.handle_import,
+            methods=('POST',))
+        self.add_callback_response(
+            "/api/scanning/v1/import/images",
+            self.handle_import,
+            methods=('POST',))
+        self.add_callback_response(
+            "/api/scanning/v1/anchore/images/<digest>/check",
+            self.handle_images)
+        self.add_callback_response(
+            "/api/scanning/v1/anchore/images/<digest>",
+            self.handle_image_delete,
+            methods=('DELETE',))
+        self.add_callback_response(
+            "/<path:path>",
+            self.catch_all,
+            methods=('GET', 'POST', 'DELETE'))
 
     def _shutdown_server(self):
-        from flask import request
-        if not 'werkzeug.server.shutdown' in request.environ:
+        if 'werkzeug.server.shutdown' not in request.environ:
             raise RuntimeError('Not running the development server')
         request.environ['werkzeug.server.shutdown']()
         return 'Server shutting down...'
@@ -46,7 +59,7 @@ class MockServer(Thread):
         def callback():
             return jsonify(serializable)
         callback.__name__ = str(uuid4())  # change name of method to mitigate flask exception
-        
+
         self.add_callback_response(url, callback, methods=methods)
 
     def run(self):
@@ -81,4 +94,3 @@ class MockServer(Thread):
     def init_test(self, known_images=[], report_result="unknown"):
         self.known_images = known_images
         self.report_result = report_result
-
