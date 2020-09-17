@@ -104,7 +104,7 @@ main() {
         exit 1
     else
         get_and_validate_analyzer_options "$@"
-        SCAN_IMAGE="${VALIDATED_OPTIONS[@]}" 
+        SCAN_IMAGE="${VALIDATED_OPTIONS[0]}" 
         inspect_image
         start_analysis
         display_report
@@ -171,7 +171,7 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - must specify a valid sha256:<digestID>: ${SYSDIG_IMAGE_DIGEST}" >&2
         display_usage >&2
         exit 1
-    elif ! curl -o /dev/null -k -s -S --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status"; then
+    elif ! curl -ksS -o /dev/null --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status"; then
         printf '\n\t%s\n\n' "ERROR - invalid combination of Sysdig secure endpoint" >&2
         display_usage >&2
         exit 1
@@ -372,9 +372,9 @@ perform_analysis() {
     fi
 
     # finally, get the account from Sysdig for the input username
-    HCODE=$(curl -sSk --output "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/account")
+    HCODE=$(curl -ksS -o "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/account")
     if [[ "${HCODE}" == 404 ]]; then
-	    HCODE=$(curl -sSk --output "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL%%/}/account")
+	    HCODE=$(curl -ksS -o "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL%%/}/account")
     fi
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "${TMP_PATH}/sysdig_output.log" ]]; then
@@ -412,13 +412,13 @@ post_analysis() {
 
     # Posting the archive to the secure backend (sync import)
     printf '%s\n' " Calling sync import endpoint"
-    HCODE=$(curl -sSk --output "${TMP_PATH}/sysdig_output.log" --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/sync/import/images")
+    HCODE=$(curl -ksS -o "${TMP_PATH}/sysdig_output.log" --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/sync/import/images")
 
     if [[ "${HCODE}" != 200 ]]; then
         if [[ "${HCODE}" == 404 ]]; then
             # Posting the archive to the secure backend (async import)
             printf '%s\n' " Calling async import endpoint"
-            HCODE=$(curl -sSk --output "${TMP_PATH}/sysdig_output.log" --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
+            HCODE=$(curl -ksS -o "${TMP_PATH}/sysdig_output.log" --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images")
             if [[ "${HCODE}" != 200 ]]; then
                 printf '\n\t%s\n\n' "ERROR - unable to POST image metadata to ${SYSDIG_SCANNING_URL%%/}/import/images" >&2
                 if [ -f "${TMP_PATH}/sysdig_output.log" ]; then
@@ -442,7 +442,7 @@ post_analysis() {
 }
 
 get_scan_result() {
-    GET_CALL_STATUS=$(curl -sk -o "${TMP_PATH}"/sysdig_report.log --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
+    GET_CALL_STATUS=$(curl -ks -o "${TMP_PATH}"/sysdig_report.log --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
 }
 
 get_scan_result_with_retries() {
@@ -477,7 +477,7 @@ display_report() {
         print_scan_result_summary_message
         if [[ "${clean_flag:-}" ]]; then
             echo "Cleaning image from Anchore"
-            curl -X DELETE -s -k -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}?force=true"
+            curl -X DELETE -ksS -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}?force=true"
         fi
         exit 1
     fi
@@ -499,7 +499,7 @@ print_scan_result_summary_message() {
     if [[ ! "${v_flag-""}"  && ! "${r_flag-""}" ]]; then
         if [[ ! "${status}" = "pass" ]]; then
             echo "Result Details: "
-            curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=true"
+            curl -ksS --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=true"
         fi
     fi
 
@@ -516,7 +516,7 @@ print_scan_result_summary_message() {
 
 get_scan_result_pdf_by_digest() {
     date_format=$(date +'%Y-%m-%d')
-    curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=${FULLTAG}"
+    curl -ksS --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=${FULLTAG}"
 }
 
 interupt() {
