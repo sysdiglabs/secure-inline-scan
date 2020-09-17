@@ -11,4 +11,6 @@ USER anchore
 
 COPY files/ /
 
+HEALTHCHECK --start-period=0s NONE
+
 ENTRYPOINT ["/sysdig-inline-scan.sh"]

@@ -224,30 +224,30 @@ inspect_image() {
     # Make sure image is available locally
     if [[ "${T_flag:-false}" == true ]]; then
         echo "Inspecting image from Docker archive file -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw docker-archive:"${IMAGE_NAME}")
-        INSPECT=$(skopeo inspect docker-archive:"${IMAGE_NAME}")
+        MANIFEST=$(skopeo inspect --raw docker-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect docker-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     elif [[ "${O_flag:-false}" == true ]]; then
         echo "Inspecting image from OCI archive file -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw oci-archive:"${IMAGE_NAME}")
-        INSPECT=$(skopeo inspect oci-archive:"${IMAGE_NAME}")
+        MANIFEST=$(skopeo inspect --raw oci-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect oci-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     elif [[ "${D_flag:-false}" == true ]]; then
         echo "Inspecting image from OCI directory -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw oci:"${IMAGE_NAME}")
-        INSPECT=$(skopeo inspect oci:"${IMAGE_NAME}")
+        MANIFEST=$(skopeo inspect --raw oci:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect oci:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     elif [[ "${C_flag:-false}" == true ]]; then
         echo "Inspecting image from container-storage -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw container-storage:"${IMAGE_NAME}")
-        INSPECT=$(skopeo inspect container-storage:"${IMAGE_NAME}")
+        MANIFEST=$(skopeo inspect --raw container-storage:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect container-storage:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
         echo "Inspecting image from remote repository -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw docker://"${IMAGE_NAME}")
-        INSPECT=$(skopeo inspect docker://"${IMAGE_NAME}")
+        MANIFEST=$(skopeo inspect --raw docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     else
         echo "Inspecting image from Docker daemon -- ${IMAGE_NAME}"
         #Make sure 'anchore' user can access the docker sock
         sudo /usr/bin/chgrp anchore /var/run/docker.sock
-        MANIFEST=$(skopeo inspect --raw docker-daemon:"${IMAGE_NAME}")
-        INSPECT=$(skopeo inspect docker-daemon:"${IMAGE_NAME}")
+        MANIFEST=$(skopeo inspect --raw docker-daemon:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect docker-daemon:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     fi 
 
     FULL_IMAGE_NAME=$(echo -n "${INSPECT}" | jq -r .Name)
@@ -284,7 +284,7 @@ convert_image() {
 
 find_image_error() {
     printf '\n%s\n\n' "WARNING - Please pull remote image, or build/tag all local images before attempting analysis again" >&2
-    printf '\n\t%s\n\n' "ERROR - Failed to retrive docker image specified in script input: $1" >&2
+    printf '\n\t%s\n\n' "ERROR - Failed to retrieve the image specified in script input: $1" >&2
     display_usage >&2
     exit 1
 }
