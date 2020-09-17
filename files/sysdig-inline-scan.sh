@@ -5,9 +5,9 @@ set -eou pipefail
 #TODO:
 # - Previous inline-scan.sh downloaded the same anchore/anchore-engine version to match the backend version. Might this be an issue?
 # - Add a --json or similar option to do all the output in valid JSON format that can be processed and automated (i.e. for Jenkins plugin)
-# - We do the pulling / conversion before checking if already scanned. Inspect before pulling / converting?
 # - Check digest calculation when there is no RepoDigest
 # - Check Image ID (SYSDIG_IMAGE_ID) different from OCI config than docker Config 
+# - Keep compatibility using same parameters as older script? Or define a new set of params, and use --long params?
 
 ########################
 ### GLOBAL VARIABLES ###
@@ -104,8 +104,10 @@ main() {
         exit 1
     else
         get_and_validate_analyzer_options "$@"
-        convert_image "${VALIDATED_OPTIONS[@]}"
+        SCAN_IMAGE="${VALIDATED_OPTIONS[@]}" 
+        inspect_image
         start_analysis
+        display_report
     fi
 }
 
@@ -169,7 +171,7 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - must specify a valid sha256:<digestID>: ${SYSDIG_IMAGE_DIGEST}" >&2
         display_usage >&2
         exit 1
-    elif ! curl -k -s --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status" > /dev/null; then
+    elif ! curl -o /dev/null -k -s -S --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status"; then
         printf '\n\t%s\n\n' "ERROR - invalid combination of Sysdig secure endpoint" >&2
         display_usage >&2
         exit 1
@@ -210,50 +212,42 @@ get_and_validate_analyzer_options() {
     VALIDATED_OPTIONS=( "$@" )
 }
 
-convert_image() {
-
+inspect_image() {
     # Skopeo requires specifying a tag
-    TAG=$(echo "$1" | cut -d : -s -f 2)
+    TAG=$(echo "${SCAN_IMAGE}" | cut -d : -s -f 2)
     if [[ -n "${TAG// }" ]] || [[ "${T_flag:-false}" == true ]] || [[ "${O_flag:-false}" == true ]] || [[ "${D_flag:-false}" == true ]]; then
-        IMAGE_NAME=$1
+        IMAGE_NAME=${SCAN_IMAGE}
     else
-        IMAGE_NAME="${1}:latest"
+        IMAGE_NAME="${SCAN_IMAGE}:latest"
     fi
 
-    DEST_IMAGE="oci:${TMP_PATH}/oci-image"
-    # Make sure image is available locally, add to FAILED_IMAGES array if not
+    # Make sure image is available locally
     if [[ "${T_flag:-false}" == true ]]; then
-        echo "Getting image from Docker archive file -- ${IMAGE_NAME}"
+        echo "Inspecting image from Docker archive file -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw docker-archive:"${IMAGE_NAME}")
         INSPECT=$(skopeo inspect docker-archive:"${IMAGE_NAME}")
-        skopeo copy docker-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${O_flag:-false}" == true ]]; then
-        echo "Getting image from OCI archive file -- ${IMAGE_NAME}"
+        echo "Inspecting image from OCI archive file -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw oci-archive:"${IMAGE_NAME}")
         INSPECT=$(skopeo inspect oci-archive:"${IMAGE_NAME}")
-        skopeo copy oci-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${D_flag:-false}" == true ]]; then
-        echo "Getting image from OCI directory -- ${IMAGE_NAME}"
+        echo "Inspecting image from OCI directory -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw oci:"${IMAGE_NAME}")
         INSPECT=$(skopeo inspect oci:"${IMAGE_NAME}")
-        skopeo copy oci:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${C_flag:-false}" == true ]]; then
-        echo "Getting image from container-storage -- ${IMAGE_NAME}"
+        echo "Inspecting image from container-storage -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw container-storage:"${IMAGE_NAME}")
         INSPECT=$(skopeo inspect container-storage:"${IMAGE_NAME}")
-        skopeo copy container-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
-        echo "Pulling image -- ${IMAGE_NAME}"
+        echo "Inspecting image from remote repository -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw docker://"${IMAGE_NAME}")
         INSPECT=$(skopeo inspect docker://"${IMAGE_NAME}")
-        skopeo copy docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     else
-        echo "Getting image from Docker daemon -- ${IMAGE_NAME}"
+        echo "Inspecting image from Docker daemon -- ${IMAGE_NAME}"
         #Make sure 'anchore' user can access the docker sock
         sudo /usr/bin/chgrp anchore /var/run/docker.sock
         MANIFEST=$(skopeo inspect --raw docker-daemon:"${IMAGE_NAME}")
         INSPECT=$(skopeo inspect docker-daemon:"${IMAGE_NAME}")
-        skopeo copy docker-daemon:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     fi 
 
     FULL_IMAGE_NAME=$(echo -n "${INSPECT}" | jq -r .Name)
@@ -261,8 +255,31 @@ convert_image() {
 
     # Calculate "repo digest" from the RAW manifest
     REPO_DIGEST=$(echo -n "${MANIFEST}" | ${SHASUM_COMMAND} | cut -d ' ' -f 1)
+}
 
-    SCAN_IMAGE=$1
+convert_image() {
+
+
+    DEST_IMAGE="oci:${TMP_PATH}/oci-image"
+    if [[ "${T_flag:-false}" == true ]]; then
+        echo "Converting image from Docker archive file -- ${IMAGE_NAME}"
+        skopeo copy docker-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+    elif [[ "${O_flag:-false}" == true ]]; then
+        echo "Converting image from OCI archive file -- ${IMAGE_NAME}"
+        skopeo copy oci-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+    elif [[ "${D_flag:-false}" == true ]]; then
+        echo "Converting image from OCI directory -- ${IMAGE_NAME}"
+        skopeo copy oci:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+    elif [[ "${C_flag:-false}" == true ]]; then
+        echo "Converting image from container-storage -- ${IMAGE_NAME}"
+        skopeo copy container-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+    elif [[ "${P_flag:-false}" == true ]]; then
+        echo "Converting image pulled from remote repository -- ${IMAGE_NAME}"
+        skopeo copy docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+    else
+        echo "Converting image from Docker daemon -- ${IMAGE_NAME}"
+        skopeo copy docker-daemon:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+    fi 
 }
 
 find_image_error() {
@@ -273,11 +290,6 @@ find_image_error() {
 }
 
 start_analysis() {
-
-    if [[ ! "${i_flag-""}" ]]; then
-        #TODO(airadier): Probably this works, but the OCI config digest will differ from the docker config digest
-        SYSDIG_IMAGE_ID=$(skopeo inspect --raw oci:"${TMP_PATH}"/oci-image | jq -r .config.digest | cut -f2 -d ":" )
-    fi
 
     if [[ ! "${d_flag-""}" ]]; then
         SYSDIG_IMAGE_DIGEST="sha256:${REPO_DIGEST}"
@@ -293,7 +305,6 @@ start_analysis() {
         FULLTAG="${FULLTAG}:latest"
     fi
 
-    #TODO: Check that case for local build images (no registry) works, and localbuild/ is added
     if [[ -z ${REPO_TAG} ]]; then
         # local built image, has not digest and refers to no registry
         FULLTAG="localbuild/${FULLTAG}"
@@ -310,25 +321,31 @@ start_analysis() {
         fi
     fi
 
-    printf '%s\n' "Image id: ${SYSDIG_IMAGE_ID}"
     printf '%s\n' "Repo digest: ${SYSDIG_IMAGE_DIGEST}"
-    printf '%s\n' "using full image name: ${FULLTAG}"
+    printf '%s\n' "Full image name: ${FULLTAG}"
 
-    get_scan_result_code
+    get_scan_result
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
+        convert_image
         perform_analysis
         post_analysis
+        get_scan_result_with_retries
     else
         echo "Image digest found on Sysdig Secure, skipping analysis."
     fi
-
-    get_scan_result_with_retries
 }
 
 perform_analysis() {
     export ANCHORE_DB_HOST=x
     export ANCHORE_DB_USER=x
     export ANCHORE_DB_PASSWORD=x 
+
+    if [[ ! "${i_flag-""}" ]]; then
+        #TODO(airadier): Probably this works, but the OCI config digest will differ from the docker config digest
+        SYSDIG_IMAGE_ID=$(skopeo inspect --raw oci:"${TMP_PATH}"/oci-image | jq -r .config.digest | cut -f2 -d ":" )
+    fi
+
+    printf '%s\n' "Image id: ${SYSDIG_IMAGE_ID}"
 
     # shellcheck disable=SC2016
     ANALYZE_CMD+=('anchore-manager analyzers exec ${TMP_PATH}/oci-image ${TMP_PATH}/image-analysis-archive.tgz')
@@ -424,26 +441,30 @@ post_analysis() {
 
 }
 
-get_scan_result_code() {
-    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
+get_scan_result() {
+    GET_CALL_STATUS=$(curl -sk -o "${TMP_PATH}"/sysdig_report.log --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
 }
 
 get_scan_result_with_retries() {
     # Fetching the result of each scanned digest
     for ((i=0;  i < GET_CALL_RETRIES; i++)); do
-        get_scan_result_code
+        get_scan_result
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
-            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | jq -r ".[0][\"${SYSDIG_IMAGE_DIGEST}\"][\"${FULLTAG}\"][0].status")
             break
         fi
         echo -n "." && sleep 1
     done
+}
+
+display_report() {
+
+    status=$(jq -r ".[0][\"${SYSDIG_IMAGE_DIGEST}\"][\"${FULLTAG}\"][0].status" "${TMP_PATH}"/sysdig_report.log)
 
     printf "Scan Report - \n"
-    curl -s -k --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}"
+    cat "${TMP_PATH}"/sysdig_report.log
 
     if [[ "${r_flag-""}" ]]; then
-        printf "\nDownloading PDF Scan result for image id: %s / digest: %s" "${SYSDIG_IMAGE_ID}" "${SYSDIG_IMAGE_DIGEST}"
+        printf "\nDownloading PDF Scan result for image digest: %s" "${SYSDIG_IMAGE_DIGEST}"
         get_scan_result_pdf_by_digest
     fi
 
