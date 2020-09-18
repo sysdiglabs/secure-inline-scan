@@ -33,6 +33,8 @@ PDF_DIRECTORY="$PWD"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
 DETAIL=false
+SKOPEO_AUTH=(--authfile /config/auth.json)
+SKOPEO_COPY_AUTH=(--authfile /config/auth.json)
 
 if command -v sha256sum >/dev/null 2>&1; then
     SHASUM_COMMAND="sha256sum"
@@ -91,7 +93,14 @@ Sysdig Inline Analyzer --
       -C         Get the image from container-storage (CRI-O and others).
                  Requires mounting /etc/containers/storage.conf and /var/lib/containers
 
-      -P         Pull container image from registry
+      -P         Pull container image from registry. When pulling from the registry,
+                 the credentials in the config file located at /config/auth.json will be
+                 used (so you can mount a docker config.json file, for example).
+                 Alternatively, you can provide authentication credentials with:
+
+                -u username:password     Authenticate using this Bearer <Token>
+                -b <TOKEN>               Authenticate using this Bearer <Token>
+
 EOF
 }
 
@@ -113,7 +122,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:a:f:i:d:m:ocvr:hTODCP' option; do
+    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hTODCP' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
@@ -126,6 +135,8 @@ get_and_validate_analyzer_options() {
             c  ) clean_flag=true;;
             v  ) v_flag=true;;
             r  ) r_flag=true; PDF_DIRECTORY="${OPTARG}";;
+            u  ) SKOPEO_AUTH=(--creds "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-creds "${OPTARG}");;
+            b  ) SKOPEO_AUTH=(--registry-token "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-registry-token "${OPTARG}");;
             h  ) display_usage; exit;;
             T  ) T_flag=true;;
             O  ) O_flag=true;;
@@ -240,8 +251,8 @@ inspect_image() {
         INSPECT=$(skopeo inspect container-storage:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
         echo "Inspecting image from remote repository -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
-        INSPECT=$(skopeo inspect docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect "${SKOPEO_AUTH[@]}" --raw docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect "${SKOPEO_AUTH[@]}" docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     else
         echo "Inspecting image from Docker daemon -- ${IMAGE_NAME}"
         # Make sure we can access the docker sock...
@@ -278,7 +289,7 @@ convert_image() {
         skopeo copy container-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
         echo "Converting image pulled from remote repository -- ${IMAGE_NAME}"
-        skopeo copy docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+        skopeo copy "${SKOPEO_COPY_AUTH[@]}" docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     else
         echo "Converting image from Docker daemon -- ${IMAGE_NAME}"
         skopeo copy docker-daemon:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
@@ -461,7 +472,7 @@ get_scan_result_with_retries() {
 
 display_report() {
 
-    status=$(jq -r ".[0][\"${SYSDIG_IMAGE_DIGEST}\"][\"${FULLTAG}\"][0].status" "${TMP_PATH}"/sysdig_report.log)
+    status=$(jq -r ".[0][][][0].status // empty" "${TMP_PATH}"/sysdig_report.log)
 
     printf "Scan Report - \n"
     cat "${TMP_PATH}"/sysdig_report.log
