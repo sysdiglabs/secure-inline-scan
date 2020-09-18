@@ -244,8 +244,11 @@ inspect_image() {
         INSPECT=$(skopeo inspect docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     else
         echo "Inspecting image from Docker daemon -- ${IMAGE_NAME}"
-        #Make sure 'anchore' user can access the docker sock
-        sudo /usr/bin/chgrp anchore /var/run/docker.sock
+        # Make sure we can access the docker sock...
+        DOCKERGID=$(stat -c '%g' /var/run/docker.sock)
+        #  ...by changing the group of skopeo, which has "setgid" flag
+        sudo /usr/bin/chgrp "${DOCKERGID}" /usr/bin/skopeo
+        sudo /usr/bin/chmod g+s /usr/bin/skopeo
         MANIFEST=$(skopeo inspect --raw docker-daemon:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
         INSPECT=$(skopeo inspect docker-daemon:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     fi 
