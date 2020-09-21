@@ -328,7 +328,8 @@ start_analysis() {
     FULLTAG="${SCAN_IMAGE}"
 
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        #TODO: "latest" as default? should we use "sysdig-line-scan"?
+        #TODO(airadier): "latest" as default? should we use "sysdig-line-scan"?
+        #TODO(airadier): REPO_TAG has the first tag in the report, but it might not match the one from the digest, which is wrong
         FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         #TODO: "latest" as default? should we use "sysdig-line-scan"?
