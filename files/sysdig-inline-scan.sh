@@ -33,6 +33,7 @@ PDF_DIRECTORY="$PWD"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
 DETAIL=false
+SKOPEO_REGISTRY_CONF=()
 SKOPEO_AUTH=(--authfile /config/auth.json)
 SKOPEO_COPY_AUTH=(--authfile /config/auth.json)
 
@@ -98,8 +99,12 @@ Sysdig Inline Analyzer --
                  used (so you can mount a docker config.json file, for example).
                  Alternatively, you can provide authentication credentials with:
 
-                -u username:password     Authenticate using this Bearer <Token>
-                -b <TOKEN>               Authenticate using this Bearer <Token>
+                -u username:password  Authenticate using this Bearer <Token>
+                -b <TOKEN>            Authenticate using this Bearer <Token>
+
+                To skip TLS certificate validation, add -n flag:
+
+                -n                    Skip TLS certificate validation
 
 EOF
 }
@@ -122,7 +127,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     #Parse options
-    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hTODCP' option; do
+    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hTODCPn' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
@@ -143,6 +148,7 @@ get_and_validate_analyzer_options() {
             D  ) D_flag=true;;
             C  ) C_flag=true;;
             P  ) P_flag=true;;
+            n  ) n_flag=true;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage >&2; exit 1;;
             :  ) printf "\n\t%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage >&2; exit 1;;
         esac
@@ -232,6 +238,16 @@ inspect_image() {
         IMAGE_NAME="${SCAN_IMAGE}:latest"
     fi
 
+    if [[ "${n_flag:-false}" == true ]]; then
+        # Allow pull from insecure registries
+        SKOPEO_REGISTRY_CONF=(--registries-conf="${TMP_PATH}"/registries.conf)
+        cat > "${TMP_PATH}"/registries.conf <<EOF
+[[registry]]
+location = "$(echo ${IMAGE_NAME} | cut -d '/' -f 1)"
+insecure = true
+EOF
+    fi
+
     # Make sure image is available locally
     if [[ "${T_flag:-false}" == true ]]; then
         echo "Inspecting image from Docker archive file -- ${IMAGE_NAME}"
@@ -251,8 +267,8 @@ inspect_image() {
         INSPECT=$(skopeo inspect container-storage:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
         echo "Inspecting image from remote repository -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect "${SKOPEO_AUTH[@]}" --raw docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
-        INSPECT=$(skopeo inspect "${SKOPEO_AUTH[@]}" docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        MANIFEST=$(skopeo inspect "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_AUTH[@]}" --raw docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        INSPECT=$(skopeo inspect "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_AUTH[@]}" docker://"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
     else
         echo "Inspecting image from Docker daemon -- ${IMAGE_NAME}"
         # Make sure we can access the docker sock...
@@ -289,7 +305,7 @@ convert_image() {
         skopeo copy container-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     elif [[ "${P_flag:-false}" == true ]]; then
         echo "Converting image pulled from remote repository -- ${IMAGE_NAME}"
-        skopeo copy "${SKOPEO_COPY_AUTH[@]}" docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+        skopeo copy "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_COPY_AUTH[@]}" docker://"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
     else
         echo "Converting image from Docker daemon -- ${IMAGE_NAME}"
         skopeo copy docker-daemon:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
