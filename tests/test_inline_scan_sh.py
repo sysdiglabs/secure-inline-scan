@@ -70,7 +70,7 @@ class InlineScanShellScript(unittest.TestCase):
         self.server.init_test(report_result="pass")
         image_name_with_tag = "busybox:latest"
         run_command(f'docker pull {image_name_with_tag}')
-        run_command(f'docker save {image_name_with_tag} -o image.tar')
+        run_command(f'docker save {image_name_with_tag} > image.tar')
         process_result = self.inline_scan(image_name_with_tag, input_tar="-T")
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
