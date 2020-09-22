@@ -59,7 +59,7 @@ Sysdig Inline Analyzer --
 
   Images should be built & tagged locally.
 
-    Usage: ${0##*/} -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG|TARFILE|DIRECTORY>
+    Usage: ${0##*/} -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
       -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
@@ -79,25 +79,25 @@ Sysdig Inline Analyzer --
 
       IMAGE SOURCES
 
-      [Default]  If no flag is specified, try to get the image from the Docker daemon. 
-                 Requires /var/run/docker.sock to be mounted in the container
+      [Default] If no flag is specified, try to get the image from the Docker daemon. 
+                Requires /var/run/docker.sock to be mounted in the container
 
-      -T         Image is provided as a Docker .tar file (from docker save) in the location
-                 specified by TARFILE (need to mount it in the container)
+      -T        Image is provided as a Docker .tar file (from docker save).
+                Tarfile nust be mounted as /tmp/image.tar inside the container
 
-      -O         Image is provided as a OCI image tar file in the location specified
-                 by TARFILE (need to mount it in the container)
+      -O        Image is provided as a OCI image tar file.
+                Tarfile must be mounted as /tmp/image.tar inside the container
 
-      -D         Image is provided as a OCI image, untared, in the location specified
-                 by DIRECTORY (need to mount it in the container)
+      -D        Image is provided as a OCI image, untared.
+                The directory must be mounted as /tmp/image inside the container
 
-      -C         Get the image from container-storage (CRI-O and others).
-                 Requires mounting /etc/containers/storage.conf and /var/lib/containers
+      -C        Get the image from container-storage (CRI-O and others).
+                Requires mounting /etc/containers/storage.conf and /var/lib/containers
 
-      -P         Pull container image from registry. When pulling from the registry,
-                 the credentials in the config file located at /config/auth.json will be
-                 used (so you can mount a docker config.json file, for example).
-                 Alternatively, you can provide authentication credentials with:
+      -P        Pull container image from registry. When pulling from the registry,
+                the credentials in the config file located at /config/auth.json will be
+                used (so you can mount a docker config.json file, for example).
+                Alternatively, you can provide authentication credentials with:
 
                 -u username:password  Authenticate using this Bearer <Token>
                 -b <TOKEN>            Authenticate using this Bearer <Token>
@@ -232,7 +232,7 @@ get_and_validate_analyzer_options() {
 inspect_image() {
     # Skopeo requires specifying a tag
     TAG=$(echo "${SCAN_IMAGE}" | cut -d : -s -f 2)
-    if [[ -n "${TAG// }" ]] || [[ "${T_flag:-false}" == true ]] || [[ "${O_flag:-false}" == true ]] || [[ "${D_flag:-false}" == true ]]; then
+    if [[ -n "${TAG// }" ]]; then
         IMAGE_NAME=${SCAN_IMAGE}
     else
         IMAGE_NAME="${SCAN_IMAGE}:latest"
@@ -250,17 +250,17 @@ EOF
 
     # Make sure image is available locally
     if [[ "${T_flag:-false}" == true ]]; then
-        echo "Inspecting image from Docker archive file -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw docker-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
-        INSPECT=$(skopeo inspect docker-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        echo "Inspecting image from Docker archive file -- /tmp/image.tar"
+        MANIFEST=$(skopeo inspect --raw docker-archive:/tmp/image.tar) || find_image_error "/tmp/image.tar"
+        INSPECT=$(skopeo inspect docker-archive:/tmp/image.tar) || find_image_error "/tmp/image.tar"
     elif [[ "${O_flag:-false}" == true ]]; then
-        echo "Inspecting image from OCI archive file -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw oci-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
-        INSPECT=$(skopeo inspect oci-archive:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        echo "Inspecting image from OCI archive file -- /tmp/image.tar"
+        MANIFEST=$(skopeo inspect --raw oci-archive:/tmp/image.tar) || find_image_error "/tmp/image.tar"
+        INSPECT=$(skopeo inspect oci-archive:/tmp/image.tar) || find_image_error "/tmp/image.tar"
     elif [[ "${D_flag:-false}" == true ]]; then
-        echo "Inspecting image from OCI directory -- ${IMAGE_NAME}"
-        MANIFEST=$(skopeo inspect --raw oci:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
-        INSPECT=$(skopeo inspect oci:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
+        echo "Inspecting image from OCI directory -- /tmp/image"
+        MANIFEST=$(skopeo inspect --raw oci:/tmp/image) || find_image_error "/tmp/image"
+        INSPECT=$(skopeo inspect oci:/tmp/image) || find_image_error "/tmp/image"
     elif [[ "${C_flag:-false}" == true ]]; then
         echo "Inspecting image from container-storage -- ${IMAGE_NAME}"
         MANIFEST=$(skopeo inspect --raw container-storage:"${IMAGE_NAME}") || find_image_error "${IMAGE_NAME}"
@@ -292,14 +292,14 @@ convert_image() {
 
     DEST_IMAGE="oci:${TMP_PATH}/oci-image"
     if [[ "${T_flag:-false}" == true ]]; then
-        echo "Converting image from Docker archive file -- ${IMAGE_NAME}"
-        skopeo copy docker-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+        echo "Converting image from Docker archive file -- /tmp/image.tar"
+        skopeo copy docker-archive:/tmp/image.tar "${DEST_IMAGE}" || find_image_error "/tmp/image.tar"
     elif [[ "${O_flag:-false}" == true ]]; then
-        echo "Converting image from OCI archive file -- ${IMAGE_NAME}"
-        skopeo copy oci-archive:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+        echo "Converting image from OCI archive file -- /tmp/image.tar"
+        skopeo copy oci-archive:/tmp/image.tar "${DEST_IMAGE}" || find_image_error "/tmp/image.tar"
     elif [[ "${D_flag:-false}" == true ]]; then
-        echo "Converting image from OCI directory -- ${IMAGE_NAME}"
-        skopeo copy oci:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
+        echo "Converting image from OCI directory -- /tmp/image"
+        skopeo copy oci:/tmp/image "${DEST_IMAGE}" || find_image_error "/tmp/image"
     elif [[ "${C_flag:-false}" == true ]]; then
         echo "Converting image from container-storage -- ${IMAGE_NAME}"
         skopeo copy container-storage:"${IMAGE_NAME}" "${DEST_IMAGE}" || find_image_error "${IMAGE_NAME}"
@@ -327,13 +327,16 @@ start_analysis() {
 
     FULLTAG="${SCAN_IMAGE}"
 
+    echo "Repo Tag: ${REPO_TAG}"
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        #TODO(airadier): "latest" as default? should we use "sysdig-line-scan"?
+        #TODO(airadier): "latest" as default? should we use "sysdig-inline-scan"?
         #TODO(airadier): REPO_TAG has the first tag in the report, but it might not match the one from the digest, which is wrong
-        FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+        #FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+        FULLTAG=$(echo "${FULLTAG}" | awk '{ gsub("@sha256:.*", ":sysdig-inline-scan"); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         #TODO: "latest" as default? should we use "sysdig-line-scan"?
-        FULLTAG="${FULLTAG}:latest"
+        #FULLTAG="${FULLTAG}:latest"
+        FULLTAG="${FULLTAG}:sysdig-line-scan"
     fi
 
     if [[ -z ${REPO_TAG} ]]; then
