@@ -71,6 +71,7 @@ In this way, you'll be able to get the PDF even when the container exits.
 #### Complete list
 
 For more control and options, please refer to help documentation
+
 ```
     $ docker run sysdiglabs/sysdig-inline-scan
 
@@ -80,44 +81,60 @@ Sysdig Inline Analyzer --
   After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
   using the -s <URL> option. This allows inline analysis data to be persisted & utilized for reporting.
 
-  Images should be built & tagged locally.
+  Usage: ${0##*/} -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG>
 
-    Usage: sysdig-inline-scan.sh -k <API Token> [ OPTIONS ] <FULL_IMAGE_TAG|TARFILE|DIRECTORY>
+    == GLOBAL OPTIONS ==
 
-      -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-      -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
-                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
-      -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
+    -k <TEXT>   [required] API token for Sysdig Scanning auth
+                        (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
+    -s <TEXT>   [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
+                If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
+    -o          [optional] Use this flag if targeting onprem sysdig installation
+    -a <TEXT>   [optional] Add annotations (ex: -a 'key=value,key=value')
+    -f <PATH>   [optional] Path to Dockerfile (ex: -f ./Dockerfile)
+    -m <PATH>   [optional] Path to Docker image manifest (ex: -m ./manifest.json)
+    -i <TEXT>   [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
+    -d <SHA256> [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
+    -c          [optional] Remove the image from Sysdig Secure if the scan fails
+    -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
+    -v          [optional] Increase verbosity
+    -j          [optional] JSON output. Don't output human readable information on screen.
+                Instead, output a valid JSON instead which can be processed in an automated way.
 
-      -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
-      -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
-      -d <PATH>  [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
-      -m <PATH>  [optional] Path to Docker image manifest (ex: -m ./manifest.json)
-      -c         [optional] Remove the image from Sysdig Secure if the scan fails
+    == IMAGE SOURCE OPTIONS ==
 
+    [default] Pull container image from registry.
+            
+        == REGISTRY AUTHENTICATION ==
+        
+        When pulling from the registry,
+        the credentials in the config file located at /config/auth.json will be
+        used (so you can mount a docker config.json file, for example).
+        Alternatively, you can provide authentication credentials with:
+        -u username:password  Authenticate using this Bearer <Token>
+        -b <TOKEN>            Authenticate using this Bearer <Token>
 
-      -r <PATH>  [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
-      -o         [optional] Use this flag if targeting onprem sysdig installation
-      -v         [optional] Increase verbosity
+        == TLS OPTIONS ==
 
-      IMAGE SOURCES
+        -n                    Skip TLS certificate validation when pulling image
 
-      [Default]  If no flag is specified, try to get the image from the Docker daemon.
-                 Requires /var/run/docker.sock to be mounted in the container
+    -D  Get the image from the Docker daemon. 
+        Requires /var/run/docker.sock to be mounted in the container
+    -C  Get the image from containers-storage (CRI-O and others).
+        Requires mounting /etc/containers/storage.conf and /var/lib/containers
+    -T  Image is provided as a Docker .tar file (from docker save).
+        Tarfile nust be mounted as /tmp/image.tar inside the container
+    -O  Image is provided as a OCI image tar file.
+        Tarfile must be mounted as /tmp/image.tar inside the container
+    -U  Image is provided as a OCI image, untared.
+        The directory must be mounted as /tmp/image inside the container
 
-      -T         Image is provided as a Docker .tar file (from docker save) in the location
-                 specified by TARFILE (need to mount it in the container)
+    == EXIT CODES ==
 
-      -O         Image is provided as a OCI image tar file in the location specified
-                 by TARFILE (need to mount it in the container)
-
-      -D         Image is provided as a OCI image, untared, in the location specified
-                 by DIRECTORY (need to mount it in the container)
-
-      -C         Get the image from container-storage (CRI-O and others).
-                 Requires mounting /etc/containers/storage.conf and /var/lib/containers
-
-      -P         Pull container image from registry
+    0   Scan result "pass" (or -j flag enabled)
+    1   Scan result "fail" (unless -j flag enabled)
+    2   Wrong parameters
+    3   Error during execution
 ```
 
 ---

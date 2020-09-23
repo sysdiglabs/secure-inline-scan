@@ -55,14 +55,14 @@ class InlineScanShellScript(unittest.TestCase):
     def test_scan_image_from_public_registry_pass(self):
         self.server.init_test(report_result="pass")
         image_name_with_tag = "docker.io/alpine:3.10.3"
-        process_result = self.inline_scan(image_name_with_tag, pull=True)
+        process_result = self.inline_scan(image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
 
     def test_scan_image_from_public_registry_fail(self):
         self.server.init_test(report_result="fail")
         image_name_with_tag = "docker.io/alpine:3.9.4"
-        process_result = self.inline_scan(image_name_with_tag, pull=True)
+        process_result = self.inline_scan(image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
 
@@ -71,7 +71,7 @@ class InlineScanShellScript(unittest.TestCase):
         image_name_with_tag = "busybox:latest"
         run_command(f'docker pull {image_name_with_tag}')
         run_command(f'docker save {image_name_with_tag} > image.tar')
-        process_result = self.inline_scan(image_name_with_tag, input_tar="-T")
+        process_result = self.inline_scan(image_name_with_tag, source_type="-T")
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
 
@@ -79,14 +79,14 @@ class InlineScanShellScript(unittest.TestCase):
         self.server.init_test(report_result="pass")
         image_name = "docker.io/busybox"
         image_name_with_tag = "{}:latest".format(image_name)
-        process_result = self.inline_scan(image_name, pull=True)
+        process_result = self.inline_scan(image_name)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
 
     def test_scan_image_by_digest(self):
         self.server.init_test(report_result="pass")
         image_name = "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"  # noqa: E501
-        process_result = self.inline_scan(image_name, pull=True)
+        process_result = self.inline_scan(image_name)
         scan_result = self.check_output(
             process_result.stdout,
             "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd",
@@ -99,7 +99,7 @@ class InlineScanShellScript(unittest.TestCase):
 
     def test_scan_local_image(self):
         self.server.init_test(report_result="pass")
-        process_result = self.inline_scan(self.local_image_name_with_tag)
+        process_result = self.inline_scan(self.local_image_name_with_tag, source_type="-D")
         image_name_with_tag = "localbuild/{}".format(self.local_image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
@@ -110,7 +110,7 @@ class InlineScanShellScript(unittest.TestCase):
         command = "docker build --tag {} -".format(image_name)
         run_command(command, in_stream=StringIO("FROM busybox\nRUN echo 'local scanning test'"))
 
-        process_result = self.inline_scan(image_name, clean_flag=True)
+        process_result = self.inline_scan(image_name, clean_flag=True, source_type="-D")
         self.assertEqual(process_result.return_code, 0)
         for msg in ["Cleaning image from Anchore", "View the full result @"]:
             if msg in process_result.stdout:
@@ -124,7 +124,7 @@ class InlineScanShellScript(unittest.TestCase):
         command = "docker build --tag {} -".format(image_name)
         run_command(command, in_stream=StringIO("FROM busybox\nRUN echo 'local scanning test'"))
 
-        process_result = self.inline_scan(image_name, clean_flag=True)
+        process_result = self.inline_scan(image_name, clean_flag=True, source_type="-D")
 
         self.assertEqual(process_result.return_code, 1)
         self.assertIn("Cleaning image from Anchore", process_result.stdout)
@@ -138,7 +138,7 @@ class InlineScanShellScript(unittest.TestCase):
         cmd_out_json = json.loads(cmd_result.stdout)
         digests = [digest.split("@sha256:")[-1] for digest in cmd_out_json[0]['RepoDigests']]
 
-        process_result = self.inline_scan(image_name, pull=True)
+        process_result = self.inline_scan(image_name)
 
         assert any(s in process_result.stdout for s in digests)
 
@@ -156,7 +156,7 @@ class InlineScanShellScript(unittest.TestCase):
         inspect_command = f'docker inspect {image_name} | shasum -a 256'
         generated_digest = run_command(inspect_command).stdout.strip('\n\t -')
 
-        process_result = self.inline_scan(image_name)
+        process_result = self.inline_scan(image_name, source_type="-D")
 
         if generated_digest not in process_result.stdout:
             self.fail(
@@ -166,12 +166,12 @@ class InlineScanShellScript(unittest.TestCase):
     def test_scan_should_skip_analyse_if_has_already_been_scanned(self):
         self.server.init_test(report_result="pass")
         image_name_with_tag = "docker.io/alpine:3.9.5"
-        process_result = self.inline_scan(image_name_with_tag, pull=True)
+        process_result = self.inline_scan(image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
 
         # The result should now be found by the script and skip the analysis
-        process_result_again = self.inline_scan(image_name_with_tag, pull=True)
+        process_result_again = self.inline_scan(image_name_with_tag)
         self.assertIn(
             "Image digest found on Sysdig Secure, skipping analysis.",
             process_result_again.stdout,
@@ -195,23 +195,23 @@ class InlineScanShellScript(unittest.TestCase):
             run_command(f'docker pull {image}')
 
         image_name_with_tag = "alpine:latest"
-        process_result = self.inline_scan("alpine")
+        process_result = self.inline_scan("alpine", source_type="-D")
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
 
     def test_scan_non_existing_image(self):
-        process_result = self.inline_scan("non_existing_image")
-        self.assertEqual(process_result.return_code, 1)
-        self.assertIn("WARNING - Please pull remote image", process_result.stderr)
-        self.assertIn("ERROR - Failed to retrieve the image", process_result.stderr)
+        process_result = self.inline_scan("non_existing_image", source_type="-D")
+        self.assertEqual(process_result.return_code, 3)
+        self.assertIn("Please pull remote image", process_result.stderr)
+        self.assertIn("Failed to retrieve the image", process_result.stderr)
 
-        process_result = self.inline_scan("non_existing_image", pull=True)
-        self.assertIn("WARNING - Please pull remote image", process_result.stderr)
-        self.assertIn("ERROR - Failed to retrieve the image", process_result.stderr)
+        process_result = self.inline_scan("non_existing_image")
+        self.assertIn("Please pull remote image", process_result.stderr)
+        self.assertIn("Failed to retrieve the image", process_result.stderr)
 
     def test_scan_with_no_auth_token(self):
-        process_result = self.inline_scan("alpine:latest", omit_token=True)
-        self.assertEqual(process_result.return_code, 1)
+        process_result = self.inline_scan("alpine:latest", omit_token=True, source_type="-D")
+        self.assertEqual(process_result.return_code, 2)
         self.assertIn("ERROR - must provide the Sysdig Secure API token", process_result.stderr)
 
     @staticmethod
@@ -223,7 +223,6 @@ class InlineScanShellScript(unittest.TestCase):
 
     def check_output(self, stdout, image_name_with_tag):
         expected_messages = [
-            "Using temporary path /tmp/sysdig/",
             "Analysis complete!",
             "Sending analysis archive to"]
 
