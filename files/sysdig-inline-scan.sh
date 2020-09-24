@@ -4,7 +4,6 @@ set -eou pipefail
 
 #TODO:
 # - Previous inline-scan.sh downloaded the same anchore/anchore-engine version to match the backend version. Might this be an issue?
-# - Add a --json or similar option to do all the output in valid JSON format that can be processed and automated (i.e. for Jenkins plugin)
 # - Check digest calculation when there is no RepoDigest
 # - Check Image ID (SYSDIG_IMAGE_ID) different from OCI config than docker Config 
 # - Keep compatibility using same parameters as older script? Or define a new set of params, and use --long params?
@@ -12,6 +11,9 @@ set -eou pipefail
 ########################
 ### GLOBAL VARIABLES ###
 ########################
+
+# Required for tekton which overrides $HOME variables
+export HOME=/home/anchore
 
 ANALYZE_CMD=()
 SCAN_IMAGE=""
@@ -27,7 +29,6 @@ SYSDIG_ANCHORE_URL="http://localhost:9040/api/scanning/v1/anchore"
 SYSDIG_ANNOTATIONS=""
 SYSDIG_IMAGE_DIGEST="sha256:123456890abcdefg"
 SYSDIG_IMAGE_ID="123456890abcdefg"
-SYSDIG_API_TOKEN=""
 MANIFEST_FILE="./manifest.json"
 PDF_DIRECTORY="$PWD"
 GET_CALL_STATUS=''
@@ -75,7 +76,8 @@ Sysdig Inline Analyzer --
     == GLOBAL OPTIONS ==
 
     -k <TEXT>   [required] API token for Sysdig Scanning auth
-                        (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
+                (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
+                Alternatively, set environment variable SYSDIG_API_TOKEN
     -s <URL>    [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
     -o          [optional] Use this flag if targeting onprem sysdig installation
