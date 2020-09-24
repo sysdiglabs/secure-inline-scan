@@ -69,23 +69,16 @@ class InlineScanShellScript(unittest.TestCase):
     def test_scan_image_json_output_pass(self):
         self.server.init_test(report_result="pass")
         image_name_with_tag = "docker.io/alpine:3.10.3"
-        process_result = self.inline_scan(image_name_with_tag, other_params=["-j"])
+        process_result = self.inline_scan(image_name_with_tag, other_params=["-j", "/dev/stdout", "-x"])
         out_json = json.loads(process_result.stdout)
         self.assertEqual("pass", out_json['status'])
 
     def test_scan_image_json_output_fail(self):
         self.server.init_test(report_result="fail")
         image_name_with_tag = "docker.io/alpine:3.9.4"
-        process_result = self.inline_scan(image_name_with_tag, other_params=["-j"])
+        process_result = self.inline_scan(image_name_with_tag, other_params=["-j", "/dev/stdout", "-x"])
         out_json = json.loads(process_result.stdout)
         self.assertEqual("fail", out_json['status'])
-
-    def test_scan_image_json_output_and_verbose_not_allowed(self):
-        self.server.init_test(report_result="fail")
-        image_name_with_tag = "docker.io/alpine:3.9.4"
-        process_result = self.inline_scan(image_name_with_tag, other_params=["-j", "-v"])
-        self.assertEqual(process_result.return_code, 2)
-        self.assertIn("ERROR - cannot use -v and -j at the same time", process_result.stderr)
 
     def test_scan_docker_archive(self):
         self.server.init_test(report_result="pass")

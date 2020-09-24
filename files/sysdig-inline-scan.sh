@@ -38,17 +38,18 @@ SKOPEO_AUTH=(--authfile /config/auth.json)
 SKOPEO_COPY_AUTH=(--authfile /config/auth.json)
 
 exit_with_error() {
-    if [[ -z "${json_flag:-}" ]]; then
+    if [[ -z "${silent_flag:-}" ]]; then
         printf "\nERROR:\n%b\n\n" "$1" >&2
-    else
-        jq -n --arg error "$1" --arg log "$(cat "${TMP_PATH}"/info.log)" '{status: "error", error: $error, log: $log}'
+    fi
+    if [[ -n "${json_flag:-}" ]]; then
+        jq -n --arg error "$1" --arg log "$(cat "${TMP_PATH}"/info.log)" '{status: "error", error: $error, log: $log}' > "${JSON_OUTPUT}" 2>&1 
     fi
     exit 3
 }
 
 print_info() {
-    if [[ -z "${json_flag:-}" ]]; then
-        echo "$1"
+    if [[ -z "${silent_flag:-}" ]]; then
+        echo "$1" | tee -a ${TMP_PATH}/info.log
     else
         echo "$1" >> ${TMP_PATH}/info.log
     fi
@@ -75,7 +76,7 @@ Sysdig Inline Analyzer --
 
     -k <TEXT>   [required] API token for Sysdig Scanning auth
                         (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-    -s <TEXT>   [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
+    -s <URL>    [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
     -o          [optional] Use this flag if targeting onprem sysdig installation
     -a <TEXT>   [optional] Add annotations (ex: -a 'key=value,key=value')
@@ -86,8 +87,11 @@ Sysdig Inline Analyzer --
     -c          [optional] Remove the image from Sysdig Secure if the scan fails
     -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
     -v          [optional] Increase verbosity
-    -j          [optional] JSON output. Don't output human readable information on screen.
-                Instead, output a valid JSON instead which can be processed in an automated way.
+    -x          [optional] Silent mode. Supress informational output and just end with exit code.
+                Can be used along with '-j /dev/stdout' to get only JSON in standard output.
+    -j <PATH>   [optional] JSON output. Write a valid JSON which can be processed in an automated way in
+                the specified <PATH>. Use /dev/stdout to write it in standard output, which can be used
+                along with -s to suppress other output.
 
     == IMAGE SOURCE OPTIONS ==
 
@@ -146,7 +150,7 @@ get_and_validate_analyzer_options() {
     fi
 
     #Parse options
-    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hT:O:DU:Cnj' option; do
+    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hT:O:DU:Cnj:x' option; do
         case "${option}" in
             k  ) SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) SYSDIG_BASE_SCANNING_URL="${OPTARG%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
@@ -168,7 +172,8 @@ get_and_validate_analyzer_options() {
             U  ) U_flag=true; SOURCE_PATH="${OPTARG}";;
             C  ) C_flag=true;;
             n  ) n_flag=true;;
-            j  ) json_flag=true; DETAIL=true;;
+            j  ) json_flag=true; JSON_OUTPUT="${OPTARG}"; DETAIL=true;;
+            x  ) silent_flag=true;;
             \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage >&2; exit 1;;
             :  ) printf "\n\t%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage >&2; exit 1;;
         esac
@@ -184,10 +189,6 @@ get_and_validate_analyzer_options() {
         exit 2
     elif [[ "${#@}" -lt 1 ]]; then
         printf '\n\t%s\n\n' "ERROR - must specify an image to analyze" >&2
-        display_usage >&2
-        exit 2
-    elif [[ "${v_flag:-}" && "${json_flag:-}" ]]; then
-        printf '\n\t%s\n\n' "ERROR - cannot use -v and -j at the same time" >&2
         display_usage >&2
         exit 2
     elif [[ ! "${SYSDIG_API_TOKEN:-}" ]]; then
@@ -440,6 +441,9 @@ perform_analysis() {
     eval "${ANALYZE_CMD[*]}" > "${TMP_PATH}"/analyze.out 2>&1 || true
 
     if [[ -f "${TMP_PATH}/image-analysis-archive.tgz" ]]; then
+        if [[ "${v_flag:-}" ]]; then
+            print_info_pipe "  " < "${TMP_PATH}"/analyze.out
+        fi
         print_info "Analysis complete!"
         print_info "Sending analysis archive to ${SYSDIG_SCANNING_URL%%/}"
     else
@@ -508,10 +512,6 @@ display_report() {
             print_info "Cleaning image from Anchore"
             curl -X DELETE -ksS -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}?force=true" >/dev/null 2>&1 
         fi
-
-        if [[ -z "${json_flag:-}" ]]; then
-            exit 1
-        fi
     fi
 
     if [[ -n "${json_flag:-}" ]]; then
@@ -519,7 +519,12 @@ display_report() {
             --arg status "${status}" \
             --argjson report "$(cat "${TMP_PATH}"/sysdig_report.log)" \
             --arg log "$(cat "${TMP_PATH}"/info.log)" \
-            '{status: $status, log: $log, scanReport: $report}'
+            '{status: $status, log: $log, scanReport: $report}' \
+             > "${JSON_OUTPUT}" 2>&1 
+    fi
+
+   if [[ "${status}" != "pass" ]]; then
+        exit 1
     fi
 }
 
@@ -552,7 +557,7 @@ print_scan_result_summary_message() {
         fi
     fi
 
-    print_info "PDF report of the scan results can be generated with -r option.\n"
+    print_info "PDF report of the scan results can be generated with -r option."
 }
 
 get_scan_result_pdf_by_digest() {
