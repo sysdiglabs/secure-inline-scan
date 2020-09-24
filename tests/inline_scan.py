@@ -25,8 +25,8 @@ class InlineScan:
             'content-type': 'application/json',
         }
 
-    def __call__(self, image, url=None, token=None, source_type=None,
-                 clean_flag=False, volume="", omit_token=False):
+    def __call__(self, image, url=None, token=None, clean_flag=False, 
+            omit_token=False, docker_params=[], other_params=[]):
         if not url:
             if platform.system() == 'Darwin':
                 # Hack for docker in Mac
@@ -38,10 +38,7 @@ class InlineScan:
 
         cmdline = ["docker", "run", "--rm", "--network", "host"]
 
-        if source_type == "-T":
-            cmdline += ["-v", "$(pwd)/image.tar:/tmp/image.tar"]
-        elif source_type == "-D":
-            cmdline += ["-v", "/var/run/docker.sock:/var/run/docker.sock"]
+        cmdline += docker_params
 
         cmdline.append("{}:{}".format(
             self.image_repo,
@@ -53,14 +50,10 @@ class InlineScan:
             cmdline.append('-k')
             cmdline.append(token)
 
-        if volume:
-            cmdline.append('-v')
-            cmdline.append(volume)
         if clean_flag:
             cmdline.append('-c')
 
-        if source_type:
-            cmdline.append(source_type)
+        cmdline += other_params
 
         cmdline.append(image)
 

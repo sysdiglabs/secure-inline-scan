@@ -106,16 +106,16 @@ Sysdig Inline Analyzer --
 
         -n                    Skip TLS certificate validation when pulling image
 
-    -D  Get the image from the Docker daemon. 
-        Requires /var/run/docker.sock to be mounted in the container
-    -C  Get the image from containers-storage (CRI-O and others).
-        Requires mounting /etc/containers/storage.conf and /var/lib/containers
-    -T  Image is provided as a Docker .tar file (from docker save).
-        Tarfile nust be mounted as /tmp/image.tar inside the container
-    -O  Image is provided as a OCI image tar file.
-        Tarfile must be mounted as /tmp/image.tar inside the container
-    -U  Image is provided as a OCI image, untared.
-        The directory must be mounted as /tmp/image inside the container
+    -D         Get the image from the Docker daemon. 
+               Requires /var/run/docker.sock to be mounted in the container
+    -C         Get the image from containers-storage (CRI-O and others).
+               Requires mounting /etc/containers/storage.conf and /var/lib/containers
+    -T <PATH>  Image is provided as a Docker .tar file (from docker save).
+                Tarfile nust be mounted in <PATH> inside the container
+    -O <PATH>  Image is provided as a OCI image tar file.
+               Tarfile must be mounted in <PATH> inside the container
+    -U <PATH>  Image is provided as a OCI image, untared.
+               The directory must be mounted as <PATH> inside the container
 
     == EXIT CODES ==
 
@@ -146,7 +146,7 @@ get_and_validate_analyzer_options() {
     fi
 
     #Parse options
-    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hTODUCnj' option; do
+    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hT:O:DU:Cnj' option; do
         case "${option}" in
             k  ) SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) SYSDIG_BASE_SCANNING_URL="${OPTARG%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
@@ -162,10 +162,10 @@ get_and_validate_analyzer_options() {
             u  ) SKOPEO_AUTH=(--creds "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-creds "${OPTARG}");;
             b  ) SKOPEO_AUTH=(--registry-token "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-registry-token "${OPTARG}");;
             h  ) display_usage; exit;;
-            T  ) T_flag=true;;
-            O  ) O_flag=true;;
+            T  ) T_flag=true; SOURCE_PATH="${OPTARG}";;
+            O  ) O_flag=true; SOURCE_PATH="${OPTARG}";;
             D  ) D_flag=true;;
-            U  ) U_flag=true;;
+            U  ) U_flag=true; SOURCE_PATH="${OPTARG}";;
             C  ) C_flag=true;;
             n  ) n_flag=true;;
             j  ) json_flag=true; DETAIL=true;;
@@ -188,10 +188,6 @@ get_and_validate_analyzer_options() {
         exit 2
     elif [[ "${v_flag:-}" && "${json_flag:-}" ]]; then
         printf '\n\t%s\n\n' "ERROR - cannot use -v and -j at the same time" >&2
-        display_usage >&2
-        exit 2
-    elif [[ "${r_flag:-}" && "${json_flag:-}" ]]; then
-        printf '\n\t%s\n\n' "ERROR - cannot use -r and -j at the same time" >&2
         display_usage >&2
         exit 2
     elif [[ ! "${SYSDIG_API_TOKEN:-}" ]]; then
@@ -253,7 +249,7 @@ check_dependencies() {
         # shellcheck disable=SC2016
         exit_with_error 'Skopeo is not installed or cannot be found in $PATH'
     elif ! curl -ksS -o /dev/null --fail -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/anchore/status" 2> "${TMP_PATH}"/curl.err; then
-        exit_with_error "Invalid token for specific Sysdig secure endpoint (${SYSDIG_SCANNING_URL}) - $(cat "${TMP_PATH}"/curl.err)"
+        exit_with_error "Invalid token for specific Sysdig secure endpoint (${SYSDIG_SCANNING_URL}).\n$(cat "${TMP_PATH}"/curl.err)"
     elif [[ -n "${DOCKERFILE:-}" ]] && [[ ! -f "${DOCKERFILE}" ]]; then
         exit_with_error "Dockerfile ${DOCKERFILE} does not exist"
     elif [[ "${m_flag:-}" ]] && [[ ! -f "${MANIFEST_FILE}" ]];then
@@ -292,14 +288,14 @@ EOF
 
     # Make sure image is available locally
     if [[ "${T_flag:-false}" == true ]]; then
-        print_info "Inspecting image from Docker archive file -- /tmp/image.tar"
-        SOURCE_IMAGE="docker-archive:/tmp/image.tar"
+        print_info "Inspecting image from Docker archive file -- ${SOURCE_PATH}"
+        SOURCE_IMAGE="docker-archive:${SOURCE_PATH}"
     elif [[ "${O_flag:-false}" == true ]]; then
-        SOURCE_IMAGE="oci-archive:/tmp/image.tar"
-        print_info "Inspecting image from OCI archive file -- /tmp/image.tar"
+        SOURCE_IMAGE="oci-archive:${SOURCE_PATH}"
+        print_info "Inspecting image from OCI archive file -- ${SOURCE_PATH}"
     elif [[ "${U_flag:-false}" == true ]]; then
-        print_info "Inspecting image from OCI directory -- /tmp/image"
-        SOURCE_IMAGE="oci:/tmp/image"
+        print_info "Inspecting image from OCI directory -- ${SOURCE_PATH}"
+        SOURCE_IMAGE="oci:${SOURCE_PATH}"
     elif [[ "${C_flag:-false}" == true ]]; then
         print_info "Inspecting image from containers-storage -- ${IMAGE_NAME}"
         SOURCE_IMAGE="containers-storage:${IMAGE_NAME}"
@@ -561,7 +557,7 @@ print_scan_result_summary_message() {
 
 get_scan_result_pdf_by_digest() {
     date_format=$(date +'%Y-%m-%d')
-    curl -ksS --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=${FULLTAG}"
+    curl -ksS --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=${FULLTAG}"  2> "${TMP_PATH}"/curl.err || exit_with_error "Error downloading PDF report.\n$(cat "${TMP_PATH}"/curl.err)"
 }
 
 interupt() {
