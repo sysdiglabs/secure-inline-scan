@@ -86,8 +86,9 @@ Sysdig Inline Analyzer --
     == GLOBAL OPTIONS ==
 
     -k <TEXT>   [required] API token for Sysdig Scanning auth
-                        (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-    -s <TEXT>   [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
+                (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
+                Alternatively, set environment variable SYSDIG_API_TOKEN
+    -s <URL>    [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
     -o          [optional] Use this flag if targeting onprem sysdig installation
     -a <TEXT>   [optional] Add annotations (ex: -a 'key=value,key=value')
@@ -98,8 +99,11 @@ Sysdig Inline Analyzer --
     -c          [optional] Remove the image from Sysdig Secure if the scan fails
     -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
     -v          [optional] Increase verbosity
-    -j          [optional] JSON output. Don't output human readable information on screen.
-                Instead, output a valid JSON instead which can be processed in an automated way.
+    -x          [optional] Silent mode. Supress informational output and just end with exit code.
+                Can be used along with '-j /dev/stdout' to get only JSON in standard output.
+    -j <PATH>   [optional] JSON output. Write a valid JSON which can be processed in an automated way in
+                the specified <PATH>. Use /dev/stdout to write it in standard output, which can be used
+                along with -s to suppress other output.
 
     == IMAGE SOURCE OPTIONS ==
 
@@ -118,21 +122,21 @@ Sysdig Inline Analyzer --
 
         -n                    Skip TLS certificate validation when pulling image
 
-    -D  Get the image from the Docker daemon. 
-        Requires /var/run/docker.sock to be mounted in the container
-    -C  Get the image from containers-storage (CRI-O and others).
-        Requires mounting /etc/containers/storage.conf and /var/lib/containers
-    -T  Image is provided as a Docker .tar file (from docker save).
-        Tarfile nust be mounted as /tmp/image.tar inside the container
-    -O  Image is provided as a OCI image tar file.
-        Tarfile must be mounted as /tmp/image.tar inside the container
-    -U  Image is provided as a OCI image, untared.
-        The directory must be mounted as /tmp/image inside the container
+    -D         Get the image from the Docker daemon.
+               Requires /var/run/docker.sock to be mounted in the container
+    -C         Get the image from containers-storage (CRI-O and others).
+               Requires mounting /etc/containers/storage.conf and /var/lib/containers
+    -T <PATH>  Image is provided as a Docker .tar file (from docker save).
+                Tarfile nust be mounted in <PATH> inside the container
+    -O <PATH>  Image is provided as a OCI image tar file.
+               Tarfile must be mounted in <PATH> inside the container
+    -U <PATH>  Image is provided as a OCI image, untared.
+               The directory must be mounted as <PATH> inside the container
 
     == EXIT CODES ==
 
-    0   Scan result "pass" (or -j flag enabled)
-    1   Scan result "fail" (unless -j flag enabled)
+    0   Scan result "pass"
+    1   Scan result "fail"
     2   Wrong parameters
     3   Error during execution
 ```

@@ -43,7 +43,7 @@ exit_with_error() {
         printf "\nERROR:\n%b\n\n" "$1" >&2
     fi
     if [[ -n "${json_flag:-}" ]]; then
-        jq -n --arg error "$1" --arg log "$(cat "${TMP_PATH}"/info.log)" '{status: "error", error: $error, log: $log}' > "${JSON_OUTPUT}" 2>&1 
+        jq -n --arg error "$1" --rawfile log "${TMP_PATH}"/info.log '{status: "error", error: $error, log: $log}' > "${JSON_OUTPUT}" 2>&1 || printf "\nERROR:\n%b\n\n" "$1" >&2
     fi
     exit 3
 }
@@ -112,7 +112,7 @@ Sysdig Inline Analyzer --
 
         -n                    Skip TLS certificate validation when pulling image
 
-    -D         Get the image from the Docker daemon. 
+    -D         Get the image from the Docker daemon.
                Requires /var/run/docker.sock to be mounted in the container
     -C         Get the image from containers-storage (CRI-O and others).
                Requires mounting /etc/containers/storage.conf and /var/lib/containers
@@ -125,8 +125,8 @@ Sysdig Inline Analyzer --
 
     == EXIT CODES ==
 
-    0   Scan result "pass" (or -j flag enabled)
-    1   Scan result "fail" (unless -j flag enabled)
+    0   Scan result "pass"
+    1   Scan result "fail"
     2   Wrong parameters
     3   Error during execution
 
@@ -139,6 +139,7 @@ main() {
 
     get_and_validate_analyzer_options "$@"
     SCAN_IMAGE="${VALIDATED_OPTIONS[0]}" 
+    touch "${TMP_PATH}"/info.log
     check_dependencies
     inspect_image
     start_analysis
@@ -176,8 +177,8 @@ get_and_validate_analyzer_options() {
             n  ) n_flag=true;;
             j  ) json_flag=true; JSON_OUTPUT="${OPTARG}"; DETAIL=true;;
             x  ) silent_flag=true;;
-            \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage >&2; exit 1;;
-            :  ) printf "\n\t%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage >&2; exit 1;;
+            \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage >&2; exit 2;;
+            :  ) printf "\n\t%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage >&2; exit 2;;
         esac
     done
     shift "$((OPTIND - 1))"
@@ -519,10 +520,12 @@ display_report() {
     if [[ -n "${json_flag:-}" ]]; then
         jq -n \
             --arg status "${status}" \
-            --argjson report "$(cat "${TMP_PATH}"/sysdig_report.log)" \
-            --arg log "$(cat "${TMP_PATH}"/info.log)" \
-            '{status: $status, log: $log, scanReport: $report}' \
-             > "${JSON_OUTPUT}" 2>&1 
+            --arg tag "${FULLTAG}" \
+            --arg digest "${SYSDIG_IMAGE_DIGEST}" \
+            --slurpfile reports "${TMP_PATH}"/sysdig_report.log \
+            --rawfile log "${TMP_PATH}"/info.log \
+            '{status: $status, tag: $tag, digest: $digest, log: $log, scanReport: $reports[0]}' \
+             > "${JSON_OUTPUT}" 2>&1 || exit_with_error "Cannot write JSON output"
     fi
 
    if [[ "${status}" != "pass" ]]; then
