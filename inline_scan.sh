@@ -121,7 +121,12 @@ get_and_validate_analyzer_options() {
     while getopts ':k:s:a:d:f:i:m:R:v:CPVho' option; do
         case "${option}" in
             k  ) k_flag=true; SYSDIG_API_TOKEN="${OPTARG}";;
-            s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
+            s  ) s_flag=true; SYSDIG_BASE_SCANNING_URL="${OPTARG%%}";
+                 if [[ $SYSDIG_BASE_SCANNING_URL == *"/secure" ]]; then
+                   SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL%'/secure'}"; 
+                 else 
+                   SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";
+                 fi;;
             a  ) a_flag=true; SYSDIG_ANNOTATIONS="${OPTARG}";;
             f  ) f_flag=true; DOCKERFILE="${OPTARG}";;
             i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
