@@ -25,8 +25,8 @@ class InlineScan:
             'content-type': 'application/json',
         }
 
-    def __call__(self, image, url=None, token=None, clean_flag=False, 
-            omit_token=False, docker_params=[], other_params=[]):
+    def __call__(self, image, url=None, token=None, clean_flag=False,
+                 omit_token=False, docker_params=[], other_params=[]):
         if not url:
             if platform.system() == 'Darwin':
                 # Hack for docker in Mac

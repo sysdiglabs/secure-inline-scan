@@ -75,7 +75,7 @@ For more control and options, please refer to help documentation
 ```
     $ docker run sysdiglabs/sysdig-inline-scan
 
-Sysdig Inline Analyzer --
+Sysdig Inline Analyzer -- USAGE
 
   Container for performing analysis on local container images, utilizing the Sysdig analyzer subsystem.
   After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
@@ -100,14 +100,17 @@ Sysdig Inline Analyzer --
     -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
     -v          [optional] Increase verbosity
     -x          [optional] Silent mode. Supress informational output and just end with exit code.
-                Can be used along with '-j /dev/stdout' to get only JSON in standard output.
-    -j <PATH>   [optional] JSON output. Write a valid JSON which can be processed in an automated way in
-                the specified <PATH>. Use /dev/stdout to write it in standard output, which can be used
-                along with -s to suppress other output.
+                Can be used along with '-j /dev/stdout' to get only JSON in standard output.    
+    --format <FORMAT>
+                [optional] Set output format. Available formats are:
+
+                JSON  Write a valid JSON which can be processed in an automated way
+
+                (Others formats might be included in the future)
 
     == IMAGE SOURCE OPTIONS ==
 
-    [default] Pull container image from registry.
+    [default] If --storage-type is not specified, pull container image from registry.
             
         == REGISTRY AUTHENTICATION ==
         
@@ -115,23 +118,28 @@ Sysdig Inline Analyzer --
         the credentials in the config file located at /config/auth.json will be
         used (so you can mount a docker config.json file, for example).
         Alternatively, you can provide authentication credentials with:
-        -u username:password  Authenticate using this Bearer <Token>
-        -b <TOKEN>            Authenticate using this Bearer <Token>
+        --registry-auth-basic username:password  Authenticate using this Bearer <Token>
+        --registry-auth-token <TOKEN>            Authenticate using this Bearer <Token>
+        --registry-auth-file  <PATH>             Path to file with registry credentials, default /config/auth.json
 
         == TLS OPTIONS ==
 
         -n                    Skip TLS certificate validation when pulling image
 
-    -D         Get the image from the Docker daemon.
-               Requires /var/run/docker.sock to be mounted in the container
-    -C         Get the image from containers-storage (CRI-O and others).
-               Requires mounting /etc/containers/storage.conf and /var/lib/containers
-    -T <PATH>  Image is provided as a Docker .tar file (from docker save).
-                Tarfile nust be mounted in <PATH> inside the container
-    -O <PATH>  Image is provided as a OCI image tar file.
-               Tarfile must be mounted in <PATH> inside the container
-    -U <PATH>  Image is provided as a OCI image, untared.
-               The directory must be mounted as <PATH> inside the container
+    --storage-type <SOURCE-TYPE> 
+
+        Where <SOURCE-TYPE> can be one of:
+
+        docker-daemon   Get the image from the Docker daemon.
+                        Requires /var/run/docker.sock to be mounted in the container
+        cri-o           Get the image from containers-storage (CRI-O and others).
+                        Requires mounting /etc/containers/storage.conf and /var/lib/containers
+        docker-archive  Image is provided as a Docker .tar file (from docker save).
+                        Tarfile must be mounted inside the container and path set with --storage-path
+        oci-archive     Image is provided as a OCI image tar file.
+                        Tarfile must be mounted inside the container and path set with --storage-path
+        oci-dir         Image is provided as a OCI image, untared.
+                        The directory must be mounted inside the container and path set with --storage-path
 
     == EXIT CODES ==
 

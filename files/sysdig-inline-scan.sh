@@ -43,7 +43,7 @@ exit_with_error() {
         printf "\nERROR:\n%b\n\n" "$1" >&2
     fi
     if [[ -n "${json_flag:-}" ]]; then
-        jq -n --arg error "$1" --rawfile log "${TMP_PATH}"/info.log '{status: "error", error: $error, log: $log}' > "${JSON_OUTPUT}" 2>&1 || printf "\nERROR:\n%b\n\n" "$1" >&2
+        jq -n --arg error "$1" --rawfile log "${TMP_PATH}"/info.log '{status: "error", error: $error, log: $log}' 2>&1 || printf "\nERROR:\n%b\n\n" "$1" >&2
     fi
     exit 3
 }
@@ -63,9 +63,16 @@ print_info_pipe() {
 }
 
 
+display_usage_short() {
+cat >&2 << EOF
+Use -h or --help to display usage
+EOF
+
+}
+
 display_usage() {
-    cat << EOF
-Sysdig Inline Analyzer --
+    cat >&2 << EOF
+Sysdig Inline Analyzer -- USAGE
 
   Container for performing analysis on local container images, utilizing the Sysdig analyzer subsystem.
   After image is analyzed, the resulting image archive is sent to a remote Sysdig installation
@@ -90,14 +97,17 @@ Sysdig Inline Analyzer --
     -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
     -v          [optional] Increase verbosity
     -x          [optional] Silent mode. Supress informational output and just end with exit code.
-                Can be used along with '-j /dev/stdout' to get only JSON in standard output.
-    -j <PATH>   [optional] JSON output. Write a valid JSON which can be processed in an automated way in
-                the specified <PATH>. Use /dev/stdout to write it in standard output, which can be used
-                along with -s to suppress other output.
+                Can be used along with '-j /dev/stdout' to get only JSON in standard output.    
+    --format <FORMAT>
+                [optional] Set output format. Available formats are:
+
+                JSON  Write a valid JSON which can be processed in an automated way
+
+                (Others formats might be included in the future)
 
     == IMAGE SOURCE OPTIONS ==
 
-    [default] Pull container image from registry.
+    [default] If --storage-type is not specified, pull container image from registry.
             
         == REGISTRY AUTHENTICATION ==
         
@@ -105,24 +115,28 @@ Sysdig Inline Analyzer --
         the credentials in the config file located at /config/auth.json will be
         used (so you can mount a docker config.json file, for example).
         Alternatively, you can provide authentication credentials with:
-        -u username:password  Authenticate using this Bearer <Token>
-        -b <TOKEN>            Authenticate using this Bearer <Token>
-        -l <PATH>             Path to file with registry credentials, default /config/auth.json
+        --registry-auth-basic username:password  Authenticate using this Bearer <Token>
+        --registry-auth-token <TOKEN>            Authenticate using this Bearer <Token>
+        --registry-auth-file  <PATH>             Path to file with registry credentials, default /config/auth.json
 
         == TLS OPTIONS ==
 
         -n                    Skip TLS certificate validation when pulling image
 
-    -D         Get the image from the Docker daemon.
-               Requires /var/run/docker.sock to be mounted in the container
-    -C         Get the image from containers-storage (CRI-O and others).
-               Requires mounting /etc/containers/storage.conf and /var/lib/containers
-    -T <PATH>  Image is provided as a Docker .tar file (from docker save).
-                Tarfile nust be mounted in <PATH> inside the container
-    -O <PATH>  Image is provided as a OCI image tar file.
-               Tarfile must be mounted in <PATH> inside the container
-    -U <PATH>  Image is provided as a OCI image, untared.
-               The directory must be mounted as <PATH> inside the container
+    --storage-type <SOURCE-TYPE> 
+
+        Where <SOURCE-TYPE> can be one of:
+
+        docker-daemon   Get the image from the Docker daemon.
+                        Requires /var/run/docker.sock to be mounted in the container
+        cri-o           Get the image from containers-storage (CRI-O and others).
+                        Requires mounting /etc/containers/storage.conf and /var/lib/containers
+        docker-archive  Image is provided as a Docker .tar file (from docker save).
+                        Tarfile must be mounted inside the container and path set with --storage-path
+        oci-archive     Image is provided as a OCI image tar file.
+                        Tarfile must be mounted inside the container and path set with --storage-path
+        oci-dir         Image is provided as a OCI image, untared.
+                        The directory must be mounted inside the container and path set with --storage-path
 
     == EXIT CODES ==
 
@@ -148,70 +162,107 @@ main() {
 }
 
 get_and_validate_analyzer_options() {
-    if [[ "$#" -lt 1 ]] || [[ "$1" == 'help' ]]; then
-        display_usage >&2
+    RETCODE=0
+    PARSED_ARGS=$(getopt -n "ERROR" -o k:s:a:f:i:d:m:ocvr:hn:l: --long help,format:,registry-auth-token:,registry-auth-basic:,registry-auth-file:,storage-type:,storage-path: -- "$@") || RETCODE=$?
+
+    if [ "$RETCODE" != "0" ]; then
+        printf "\n" >&2
+        display_usage_short
         exit 2
     fi
 
+    eval set -- "$PARSED_ARGS"
+
     #Parse options
-    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:l:hT:O:DU:Cnj:x' option; do
-        case "${option}" in
-            k  ) SYSDIG_API_TOKEN="${OPTARG}";;
-            s  ) SYSDIG_BASE_SCANNING_URL="${OPTARG%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
-            a  ) SYSDIG_ANNOTATIONS="${OPTARG}";;
-            f  ) DOCKERFILE="${OPTARG}";;
-            i  ) i_flag=true; SYSDIG_IMAGE_ID="${OPTARG}";;
-            d  ) d_flag=true; SYSDIG_IMAGE_DIGEST="${OPTARG}";;
-            m  ) m_flag=true; MANIFEST_FILE="${OPTARG}";;
-            o  ) o_flag=true;;
-            c  ) clean_flag=true;;
-            v  ) v_flag=true; DETAIL=true;;
-            r  ) r_flag=true; PDF_DIRECTORY="${OPTARG}";;
-            u  ) SKOPEO_AUTH=(--creds "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-creds "${OPTARG}");;
-            b  ) SKOPEO_AUTH=(--registry-token "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-registry-token "${OPTARG}");;
-            l  ) SKOPEO_AUTH=(--authfile "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-authfile "${OPTARG}");;
-            h  ) display_usage; exit;;
-            T  ) T_flag=true; SOURCE_PATH="${OPTARG}";;
-            O  ) O_flag=true; SOURCE_PATH="${OPTARG}";;
-            D  ) D_flag=true;;
-            U  ) U_flag=true; SOURCE_PATH="${OPTARG}";;
-            C  ) C_flag=true;;
-            n  ) n_flag=true;;
-            j  ) json_flag=true; JSON_OUTPUT="${OPTARG}"; DETAIL=true;;
-            x  ) silent_flag=true;;
-            \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage >&2; exit 2;;
-            :  ) printf "\n\t%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage >&2; exit 2;;
+    while :
+    do
+        case "$1" in
+            -h | --help) display_usage; exit;;
+            -k ) SYSDIG_API_TOKEN="$2"; shift 2;;
+            -s ) SYSDIG_BASE_SCANNING_URL="${2%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}"; shift 2;;
+            -a ) SYSDIG_ANNOTATIONS="$2"; shift 2;;
+            -f ) DOCKERFILE="$2"; shift 2;;
+            -i ) i_flag=true; SYSDIG_IMAGE_ID="$2"; shift 2;;
+            -d ) d_flag=true; SYSDIG_IMAGE_DIGEST="$2"; shift 2;;
+            -m ) m_flag=true; MANIFEST_FILE="$2"; shift 2;;
+            -o ) o_flag=true; shift;;
+            -c ) clean_flag=true; shift;;
+            -v ) v_flag=true; DETAIL=true; shift;;
+            -r ) r_flag=true; PDF_DIRECTORY="$2"; shift 2;;
+            --registry-auth-basic ) SKOPEO_AUTH=(--creds "$2"); SKOPEO_COPY_AUTH=(--src-creds "$2"); shift 2;;
+            --registry-auth-token ) SKOPEO_AUTH=(--registry-token "$2"); SKOPEO_COPY_AUTH=(--src-registry-token "$2"); shift 2;;
+            --registry-auth-file  ) SKOPEO_AUTH=(--authfile "$2"); SKOPEO_COPY_AUTH=(--src-authfile "$2"); shift 2;;
+            --storage-type )
+                case "$2" in
+                    docker-daemon ) D_flag=true;;
+                    cri-o ) C_flag=true;;
+                    docker-archive ) T_flag=true;;
+                    oci-archive ) O_flag=true;;
+                    oci-dir ) U_flag=true;;
+                    * )
+                        printf "ERROR: unsupported storage type '%s'\n\n" "$2" >&2
+                        display_usage_short
+                        exit 2
+                        ;;
+                esac
+                shift 2
+                ;;
+            --storage-path ) SOURCE_PATH="$2"; shift 2;;
+            -n ) n_flag=true; shift;;
+            --format )
+                case "$2" in
+                    JSON )
+                        json_flag=true
+                        silent_flag=true
+                        DETAIL=true
+                        ;;
+                    * )
+                        printf "ERROR: unsupported output format '%s'\n\n" "$2" >&2
+                        display_usage_short
+                        exit 2
+                        ;;
+                esac
+                shift 2
+                ;;
+            --) shift; break ;;
+            *) printf "ERROR: Unexpected option: %s - this should not happen.\n" "$1"; exit 2;;
         esac
     done
-    shift "$((OPTIND - 1))"
 
     SYSDIG_SCANNING_URL="${SYSDIG_BASE_SCANNING_API_URL}"/api/scanning/v1
     SYSDIG_ANCHORE_URL="${SYSDIG_SCANNING_URL}"/anchore
+
     # Check for invalid options
     if [[ "${#@}" -gt 1 ]]; then
-        printf '\n\t%s\n\n' "ERROR - only 1 image can be analyzed at a time" >&2
-        display_usage >&2
+        printf "ERROR: only 1 image can be analyzed at a time\n\n" >&2
+        display_usage_short
         exit 2
     elif [[ "${#@}" -lt 1 ]]; then
-        printf '\n\t%s\n\n' "ERROR - must specify an image to analyze" >&2
-        display_usage >&2
+        printf "ERROR: must specify an image to analyze\n\n" >&2
+        display_usage_short
         exit 2
     elif [[ ! "${SYSDIG_API_TOKEN:-}" ]]; then
-        printf '\n\t%s\n\n' "ERROR - must provide the Sysdig Secure API token" >&2
-        display_usage >&2
+        printf "ERROR: must provide the Sysdig Secure API token\n\n" >&2
+        display_usage_short
         exit 2
     elif [[ "${SYSDIG_BASE_SCANNING_URL: -1}" == '/' ]]; then
-        printf '\n\t%s\n\n' "ERROR - must specify Sysdig url - ${SYSDIG_BASE_SCANNING_URL} without trailing slash" >&2
-        display_usage >&2
+        printf "ERROR: must specify Sysdig url - %s without trailing slash\n\n" "${SYSDIG_BASE_SCANNING_URL}" >&2
+        display_usage_short
         exit 2
     elif [[ "${d_flag:-}" && ${SYSDIG_IMAGE_DIGEST} != *"sha256:"* ]]; then
-        printf '\n\t%s\n\n' "ERROR - must specify a valid sha256:<digestID>: ${SYSDIG_IMAGE_DIGEST}" >&2
-        display_usage >&2
+        printf "ERROR: must specify a valid sha256:<digestID>: %s\n\n" "${SYSDIG_IMAGE_DIGEST}" >&2
+        display_usage_short
         exit 2
     elif [[ "${r_flag:-}" ]] && [[ "${PDF_DIRECTORY: -1}" == '/' ]]; then
-        printf '\n\t%s\n\n' "ERROR - must specify file path - ${PDF_DIRECTORY} without trailing slash" >&2
-        display_usage >&2
+        printf "ERROR: must specify file path - %s without trailing slash\n\n" "${PDF_DIRECTORY}" >&2
+        display_usage_short
         exit 2
+    elif [[ -n "${T_flag:-}" ]] || [[ -n "${O_flag:-}" ]]|| [[ -n "${U_flag:-}" ]]; then
+        if [[ -z "${SOURCE_PATH:-}" ]]; then
+            printf "ERROR: must specify storage path with option --storage-path\n\n" >&2
+            display_usage_short
+            exit 2
+        fi
     fi
 
     if [[ "${v_flag:-}" ]]; then
@@ -527,7 +578,7 @@ display_report() {
             --slurpfile reports "${TMP_PATH}"/sysdig_report.log \
             --rawfile log "${TMP_PATH}"/info.log \
             '{status: $status, tag: $tag, digest: $digest, log: $log, scanReport: $reports[0]}' \
-             > "${JSON_OUTPUT}" 2>&1 || exit_with_error "Cannot write JSON output"
+            2>&1 || exit_with_error "Cannot write JSON output"
     fi
 
    if [[ "${status}" != "pass" ]]; then
