@@ -99,8 +99,6 @@ Sysdig Inline Analyzer -- USAGE
     -c          [optional] Remove the image from Sysdig Secure if the scan fails
     -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
     -v          [optional] Increase verbosity
-    -x          [optional] Silent mode. Supress informational output and just end with exit code.
-                Can be used along with '-j /dev/stdout' to get only JSON in standard output.    
     --format <FORMAT>
                 [optional] Set output format. Available formats are:
 
