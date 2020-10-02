@@ -107,6 +107,7 @@ Sysdig Inline Analyzer --
         Alternatively, you can provide authentication credentials with:
         -u username:password  Authenticate using this Bearer <Token>
         -b <TOKEN>            Authenticate using this Bearer <Token>
+        -l <PATH>             Path to file with registry credentials, default /config/auth.json
 
         == TLS OPTIONS ==
 
@@ -153,7 +154,7 @@ get_and_validate_analyzer_options() {
     fi
 
     #Parse options
-    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:hT:O:DU:Cnj:x' option; do
+    while getopts ':k:s:a:f:i:d:m:ocvr:u:b:l:hT:O:DU:Cnj:x' option; do
         case "${option}" in
             k  ) SYSDIG_API_TOKEN="${OPTARG}";;
             s  ) SYSDIG_BASE_SCANNING_URL="${OPTARG%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}";;
@@ -168,6 +169,7 @@ get_and_validate_analyzer_options() {
             r  ) r_flag=true; PDF_DIRECTORY="${OPTARG}";;
             u  ) SKOPEO_AUTH=(--creds "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-creds "${OPTARG}");;
             b  ) SKOPEO_AUTH=(--registry-token "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-registry-token "${OPTARG}");;
+            l  ) SKOPEO_AUTH=(--authfile "${OPTARG}"); SKOPEO_COPY_AUTH=(--src-authfile "${OPTARG}");;
             h  ) display_usage; exit;;
             T  ) T_flag=true; SOURCE_PATH="${OPTARG}";;
             O  ) O_flag=true; SOURCE_PATH="${OPTARG}";;
