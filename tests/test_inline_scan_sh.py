@@ -58,6 +58,15 @@ class InlineScanShellScript(unittest.TestCase):
         process_result = self.inline_scan(image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
+        self.assertNotIn(f"docker.io/{image_name_with_tag}", process_result.stdout)
+
+    def test_scan_image_from_public_registry_adds_docker_io_if_omitted(self):
+        self.server.init_test(report_result="pass")
+        image_name = "alpine:3.9.2"
+        image_name_with_registry = f"docker.io/{image_name}"
+        process_result = self.inline_scan(image_name)
+        scan_result = self.check_output(process_result.stdout, image_name_with_registry)
+        self.check_scan_result(scan_result, process_result.return_code)
 
     def test_scan_image_from_public_registry_fail(self):
         self.server.init_test(report_result="fail")

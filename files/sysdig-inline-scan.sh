@@ -416,14 +416,11 @@ start_analysis() {
     FULLTAG="${SCAN_IMAGE}"
 
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        #TODO(airadier): "latest" as default? should we use "sysdig-inline-scan"?
         #TODO(airadier): REPO_TAG has the first tag in the report, but it might not match the one from the digest, which is wrong
         #FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
-        FULLTAG=$(echo "${FULLTAG}" | awk '{ gsub("@sha256:.*", ":sysdig-inline-scan"); print $0}')
+        FULLTAG=$(echo "${FULLTAG}" | awk '{ gsub("@sha256:.*", ":latest"); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
-        #TODO: "latest" as default? should we use "sysdig-line-scan"?
-        #FULLTAG="${FULLTAG}:latest"
-        FULLTAG="${FULLTAG}:sysdig-line-scan"
+        FULLTAG="${FULLTAG}:latest"
     fi
 
     if [[ -z ${REPO_TAG} ]]; then
@@ -431,10 +428,8 @@ start_analysis() {
         FULLTAG="localbuild/${FULLTAG}"
     else
         # switch docker.io vs rest-of-the-world registries
-        # using (light) docker rule for naming: if it has a "." or a ":" we assume the image is from some specific registry
-        # see: https://github.com/docker/distribution/blob/master/reference/normalize.go#L91
-        IS_DOCKER_IO=$(echo "${FULL_IMAGE_NAME}" | grep '\.\|\:' || echo "")
-        if [[ -z ${IS_DOCKER_IO} ]] && [[ ! "${FULLTAG}" =~ ^docker.io* ]]; then
+        # Note: FULL_IMAGE_NAME comes from Skopeo and already includes `docker.io` if it's a legit dockerhub image
+        if [[ "${FULL_IMAGE_NAME}" =~ ^docker.io* ]] && [[ ! "${FULLTAG}" =~ ^docker.io* ]]; then
             # Forcing docker.io registry
             FULLTAG="docker.io/${FULLTAG}"
         else
