@@ -85,17 +85,27 @@ Sysdig Inline Analyzer -- USAGE
     -k <TEXT>   [required] API token for Sysdig Scanning auth
                 (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
                 Alternatively, set environment variable SYSDIG_API_TOKEN
+                Alias: --sysdig-token
     -s <URL>    [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
+                Alias: --sysdig-url
     -o          [optional] Use this flag if targeting onprem sysdig installation
+                Alias: --on-prem
     -a <TEXT>   [optional] Add annotations (ex: -a 'key=value,key=value')
+                Alias: --annotations
     -f <PATH>   [optional] Path to Dockerfile (ex: -f ./Dockerfile)
+                Alias: --dockerfile
     -m <PATH>   [optional] Path to Docker image manifest (ex: -m ./manifest.json)
+                Alias: --manifest
     -i <TEXT>   [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
+                Alias: --image-id
     -d <SHA256> [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
+                Alias: --digest
     -c          [optional] Remove the image from Sysdig Secure if the scan fails
     -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
+                Alias: --report-folder
     -v          [optional] Increase verbosity
+                Alias: --verbose
     --format <FORMAT>
                 [optional] Set output format. Available formats are:
 
@@ -161,7 +171,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     RETCODE=0
-    PARSED_ARGS=$(getopt -n "ERROR" -o k:s:a:f:i:d:m:ocvr:hn:l: --long help,format:,registry-auth-token:,registry-auth-basic:,registry-auth-file:,storage-type:,storage-path: -- "$@") || RETCODE=$?
+    PARSED_ARGS=$(getopt -n "ERROR" -o k:s:a:f:i:d:m:ocvr:hn:l: --long help,format:,registry-auth-token:,registry-auth-basic:,registry-auth-file:,storage-type:,storage-path:,sysdig-token:,sysdig-url:,annotations:,dockerfile:,image-id:,digest:,manifest:,on-prem,verbose,report-folder:,registry-skip-tls -- "$@") || RETCODE=$?
 
     if [ "$RETCODE" != "0" ]; then
         printf "\n" >&2
@@ -176,17 +186,18 @@ get_and_validate_analyzer_options() {
     do
         case "$1" in
             -h | --help) display_usage; exit;;
-            -k ) SYSDIG_API_TOKEN="$2"; shift 2;;
-            -s ) SYSDIG_BASE_SCANNING_URL="${2%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}"; shift 2;;
-            -a ) SYSDIG_ANNOTATIONS="$2"; shift 2;;
-            -f ) DOCKERFILE="$2"; shift 2;;
-            -i ) i_flag=true; SYSDIG_IMAGE_ID="$2"; shift 2;;
-            -d ) d_flag=true; SYSDIG_IMAGE_DIGEST="$2"; shift 2;;
-            -m ) m_flag=true; MANIFEST_FILE="$2"; shift 2;;
-            -o ) o_flag=true; shift;;
+            -k | --sysdig-token ) SYSDIG_API_TOKEN="$2"; shift 2;;
+            -s | --sysdig-url ) SYSDIG_BASE_SCANNING_URL="${2%%}"; SYSDIG_BASE_SCANNING_API_URL="${SYSDIG_BASE_SCANNING_URL}"; shift 2;;
+            -a | --annotations ) SYSDIG_ANNOTATIONS="$2"; shift 2;;
+            -f | --dockerfile ) DOCKERFILE="$2"; shift 2;;
+            -i | --image-id ) i_flag=true; SYSDIG_IMAGE_ID="$2"; shift 2;;
+            -d | --digest ) d_flag=true; SYSDIG_IMAGE_DIGEST="$2"; shift 2;;
+            -m | --manifest ) m_flag=true; MANIFEST_FILE="$2"; shift 2;;
+            -o | --on-prem ) o_flag=true; shift;;
             -c ) clean_flag=true; shift;;
-            -v ) v_flag=true; DETAIL=true; shift;;
-            -r ) r_flag=true; PDF_DIRECTORY="$2"; shift 2;;
+            -v | --verbose ) v_flag=true; DETAIL=true; shift;;
+            -r | --report-folder ) r_flag=true; PDF_DIRECTORY="$2"; shift 2;;
+            -n | --registry-skip-tls ) n_flag=true; shift;;
             --registry-auth-basic ) SKOPEO_AUTH=(--creds "$2"); SKOPEO_COPY_AUTH=(--src-creds "$2"); shift 2;;
             --registry-auth-token ) SKOPEO_AUTH=(--registry-token "$2"); SKOPEO_COPY_AUTH=(--src-registry-token "$2"); shift 2;;
             --registry-auth-file  ) SKOPEO_AUTH=(--authfile "$2"); SKOPEO_COPY_AUTH=(--src-authfile "$2"); shift 2;;
@@ -206,7 +217,6 @@ get_and_validate_analyzer_options() {
                 shift 2
                 ;;
             --storage-path ) SOURCE_PATH="$2"; shift 2;;
-            -n ) n_flag=true; shift;;
             --format )
                 case "$2" in
                     JSON )
