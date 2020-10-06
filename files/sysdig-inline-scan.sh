@@ -507,7 +507,7 @@ perform_analysis() {
 
 post_analysis() {
     # Posting the archive to the secure backend (sync import)
-    print_info "Posting analysis result to Secure backend"
+    print_info "Sending analysis result to Secure backend"
     HCODE=$(curl -sS ${CURL_FLAGS} -o "${TMP_PATH}/sysdig_output.log" --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/sync/import/images" 2> /dev/null)
 
     if [[ "${HCODE}" != 200 ]]; then

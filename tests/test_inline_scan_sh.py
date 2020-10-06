@@ -247,7 +247,7 @@ class InlineScanShellScript(unittest.TestCase):
     def check_output(self, stdout, image_name_with_tag):
         expected_messages = [
             "Analysis complete!",
-            "Sending analysis archive to"]
+            "Sending analysis result to"]
 
         remaining_output_lines = stdout.splitlines()
         for message in expected_messages:
