@@ -2,12 +2,6 @@
 
 set -eou pipefail
 
-#TODO:
-# - Previous inline-scan.sh downloaded the same anchore/anchore-engine version to match the backend version. Might this be an issue?
-# - Check digest calculation when there is no RepoDigest
-# - Check Image ID (SYSDIG_IMAGE_ID) different from OCI config than docker Config 
-# - Keep compatibility using same parameters as older script? Or define a new set of params, and use --long params?
-
 ########################
 ### GLOBAL VARIABLES ###
 ########################
@@ -416,9 +410,7 @@ start_analysis() {
     FULLTAG="${SCAN_IMAGE}"
 
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        #TODO(airadier): REPO_TAG has the first tag in the report, but it might not match the one from the digest, which is wrong
-        #FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
-        FULLTAG=$(echo "${FULLTAG}" | awk '{ gsub("@sha256:.*", ":latest"); print $0}')
+        FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         FULLTAG="${FULLTAG}:latest"
     fi
@@ -508,7 +500,6 @@ perform_analysis() {
             print_info_pipe "  " < "${TMP_PATH}"/analyze.out
         fi
         print_info "Analysis complete!"
-        print_info "Sending analysis archive to ${SYSDIG_SCANNING_URL%%/}"
     else
         exit_with_error "Cannot find image analysis archive. An error occured during analysis.\n$(cat "${TMP_PATH}"/analyze.out)"
     fi
@@ -578,7 +569,7 @@ display_report() {
     fi
 
     if [[ -n "${json_flag:-}" ]]; then
-        jq -n \
+        jq -c -n \
             --arg status "${status}" \
             --arg tag "${FULLTAG}" \
             --arg digest "${SYSDIG_IMAGE_DIGEST}" \
