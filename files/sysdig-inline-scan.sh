@@ -410,7 +410,7 @@ start_analysis() {
     FULLTAG="${SCAN_IMAGE}"
 
     if [[ "${FULLTAG}" =~ "@sha256:" ]]; then
-        FULLTAG=$(echo "${FULLTAG}" | awk -v tag_var=":${REPO_TAG:-latest}" '{ gsub("@sha256:.*", tag_var); print $0}')
+        FULLTAG=$(echo "${FULLTAG}" | awk '{ gsub("@sha256:.*", ":latest"); print $0}')
     elif [[ ! "${FULLTAG}" =~ [:]+ ]]; then
         FULLTAG="${FULLTAG}:latest"
     fi
