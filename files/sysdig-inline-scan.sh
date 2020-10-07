@@ -15,6 +15,7 @@ VALIDATED_OPTIONS=""
 # Vuln scan option variable defaults
 DOCKERFILE=""
 TMP_PATH="/tmp/sysdig"
+DEST_IMAGE_PATH="${TMP_PATH}/oci-image"
 # Analyzer option variable defaults
 SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
 SYSDIG_BASE_SCANNING_API_URL="https://api.sysdigcloud.com"
@@ -359,6 +360,8 @@ EOF
     elif [[ "${U_flag:-false}" == true ]]; then
         print_info "Inspecting image from OCI directory -- ${SOURCE_PATH}"
         SOURCE_IMAGE="oci:${SOURCE_PATH}"
+        # Avoid a 'skopeo copy' command
+        DEST_IMAGE_PATH=${SOURCE_PATH}
     elif [[ "${C_flag:-false}" == true ]]; then
         print_info "Inspecting image from containers-storage -- ${IMAGE_NAME}"
         SOURCE_IMAGE="containers-storage:${IMAGE_NAME}"
@@ -392,9 +395,10 @@ EOF
 }
 
 convert_image() {
-    DEST_IMAGE="oci:${TMP_PATH}/oci-image"
-    print_info "Converting image..."
-    skopeo copy "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_COPY_AUTH[@]}" "${SOURCE_IMAGE}" "${DEST_IMAGE}" 2> "${TMP_PATH}"/err.log | print_info_pipe "  " || find_image_error "${IMAGE_NAME}"
+    if [[ "${SOURCE_IMAGE}" != "oci:${DEST_IMAGE_PATH}" ]]; then
+        print_info "Converting image..."
+        skopeo copy "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_COPY_AUTH[@]}" "${SOURCE_IMAGE}" "oci:${DEST_IMAGE_PATH}" 2> "${TMP_PATH}"/err.log | print_info_pipe "  " || find_image_error "${IMAGE_NAME}"
+    fi
 }
 
 find_image_error() {
@@ -451,7 +455,7 @@ perform_analysis() {
     export ANCHORE_DB_PASSWORD=x 
 
     # shellcheck disable=SC2016
-    ANALYZE_CMD+=('anchore-manager analyzers exec ${TMP_PATH}/oci-image ${TMP_PATH}/image-analysis-archive.tgz')
+    ANALYZE_CMD+=('anchore-manager analyzers exec ${DEST_IMAGE_PATH} ${TMP_PATH}/image-analysis-archive.tgz')
 
     # shellcheck disable=SC2016
     ANALYZE_CMD+=('--digest "${SYSDIG_IMAGE_DIGEST}" --image-id "${SYSDIG_IMAGE_ID}"')
