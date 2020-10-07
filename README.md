@@ -2,6 +2,13 @@
 
 This self-contained container is useful for performing local analysis on container images (both from registries and locally built) and post the result of the analysis to [Sysdig Secure](https://sysdig.com/products/kubernetes-security/).
 
+---
+## Version 2+ note
+
+For version 2.0 and later documentation head over [here](./v2.md)
+
+---
+
 Here are examples of using the inline scanner in different pipelines.
 
 *   [Gitlab](https://sysdig.com/blog/gitlab-ci-cd-image-scanning/)
@@ -109,9 +116,9 @@ Sysdig Inline Analyzer -- USAGE
     == IMAGE SOURCE OPTIONS ==
 
     [default] If --storage-type is not specified, pull container image from registry.
-            
+
         == REGISTRY AUTHENTICATION ==
-        
+
         When pulling from the registry,
         the credentials in the config file located at /config/auth.json will be
         used (so you can mount a docker config.json file, for example).
@@ -124,7 +131,7 @@ Sysdig Inline Analyzer -- USAGE
 
         -n                    Skip TLS certificate validation when pulling image
 
-    --storage-type <SOURCE-TYPE> 
+    --storage-type <SOURCE-TYPE>
 
         Where <SOURCE-TYPE> can be one of:
 
