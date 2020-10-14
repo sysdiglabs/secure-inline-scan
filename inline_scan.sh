@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# NOTE: This script is left is just as a backward compatibility measure for those that uses the raw github URL.
+
 set -eou pipefail
 
 ########################

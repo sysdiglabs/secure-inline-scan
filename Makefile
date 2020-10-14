@@ -1,8 +1,9 @@
 .PHONY: major minor patch release build test push bump-git bump
 
 VERSION=$(shell cat version)
-IMAGE_NAME=sysdiglabs/secure-inline-scan
-INLINE_SCAN_SCRIPT=inline_scan.sh
+IMAGE_NAME=sysdiglabs/sysdig-inline-scan
+INLINE_SCAN_SCRIPT=inline_scan_docker.sh
+ENTRYPOINT_SCRIPT=files/sysdig-inline-scan.sh
 
 major:
 	$(MAKE) release INCREMENT='major'
@@ -40,5 +41,12 @@ shellcheck:
 		--mount type=bind,source=$(PWD)/$(INLINE_SCAN_SCRIPT),target=/$(INLINE_SCAN_SCRIPT) \
 		koalaman/shellcheck \
 		-- /$(INLINE_SCAN_SCRIPT)
+	docker run --rm \
+		--mount type=bind,source=$(PWD)/$(ENTRYPOINT_SCRIPT),target=/$(ENTRYPOINT_SCRIPT) \
+		koalaman/shellcheck \
+		-- /$(ENTRYPOINT_SCRIPT)
 
-test: shellcheck
+unittests:
+	$(MAKE) -C tests
+
+test: shellcheck unittests
