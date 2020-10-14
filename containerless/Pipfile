@@ -1,0 +1,105 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+authlib = {path = "./wheels/Authlib-0.12.1-py2.py3-none-any.whl"}
+automat = {path = "./wheels/Automat-20.2.0-py2.py3-none-any.whl"}
+click = {path = "./wheels/Click-7.0-py2.py3-none-any.whl"}
+flask = {path = "./wheels/Flask-1.1.1-py2.py3-none-any.whl"}
+jinja2 = {path = "./wheels/Jinja2-2.11.2-py2.py3-none-any.whl"}
+markupsafe = {path = "./wheels/MarkupSafe-1.1.1-cp38-cp38-macosx_10_9_x86_64.whl"}
+pyhamcrest = {path = "./wheels/PyHamcrest-2.0.2-py3-none-any.whl"}
+pyyaml = {path = "./wheels/PyYAML-5.3.1-cp38-cp38-macosx_10_15_x86_64.whl"}
+pypubsub = {path = "./wheels/Pypubsub-4.0.3-py3-none-any.whl"}
+sqlalchemy = {path = "./wheels/SQLAlchemy-1.3.12-cp38-cp38-macosx_10_15_x86_64.whl"}
+twisted = {path = "./wheels/Twisted-20.3.0-cp38-cp38-macosx_10_15_x86_64.whl"}
+werkzeug = {path = "./wheels/Werkzeug-0.16.0-py2.py3-none-any.whl"}
+anchore-engine = {path = "./wheels/anchore_engine-0.8.1-py3-none-any.whl"}
+argh = {path = "./wheels/argh-0.26.2-py2.py3-none-any.whl"}
+argon2-cffi = {path = "./wheels/argon2_cffi-20.1.0-cp37-abi3-macosx_10_6_intel.whl"}
+attrs = {path = "./wheels/attrs-20.2.0-py2.py3-none-any.whl"}
+bcrypt = {path = "./wheels/bcrypt-3.2.0-cp36-abi3-macosx_10_9_x86_64.whl"}
+boto3 = {path = "./wheels/boto3-1.11.6-py2.py3-none-any.whl"}
+botocore = {path = "./wheels/botocore-1.14.17-py2.py3-none-any.whl"}
+cbor2 = {path = "./wheels/cbor2-5.2.0-cp38-cp38-macosx_10_15_x86_64.whl"}
+certifi = {path = "./wheels/certifi-2020.6.20-py2.py3-none-any.whl"}
+cffi = {path = "./wheels/cffi-1.14.3-2-cp38-cp38-macosx_10_9_x86_64.whl"}
+chardet = {path = "./wheels/chardet-3.0.4-py2.py3-none-any.whl"}
+clickclick = {path = "./wheels/clickclick-20.10.2-py2.py3-none-any.whl"}
+connexion = {path = "./wheels/connexion-2.5.1-py2.py3-none-any.whl"}
+constantly = {path = "./wheels/constantly-15.1.0-py2.py3-none-any.whl"}
+cryptography = {path = "./wheels/cryptography-3.1.1-cp35-abi3-macosx_10_10_x86_64.whl"}
+debtcollector = {path = "./wheels/debtcollector-2.2.0-py3-none-any.whl"}
+docutils = {path = "./wheels/docutils-0.15.2-py3-none-any.whl"}
+hyperlink = {path = "./wheels/hyperlink-20.0.1-py2.py3-none-any.whl"}
+idna = {path = "./wheels/idna-2.10-py2.py3-none-any.whl"}
+ijson = {path = "./wheels/ijson-2.5.1-py3-none-any.whl"}
+incremental = {path = "./wheels/incremental-17.5.0-py2.py3-none-any.whl"}
+inflection = {path = "./wheels/inflection-0.5.1-py2.py3-none-any.whl"}
+iso8601 = {path = "./wheels/iso8601-0.1.13-py2.py3-none-any.whl"}
+itsdangerous = {path = "./wheels/itsdangerous-1.1.0-py2.py3-none-any.whl"}
+jmespath = {path = "./wheels/jmespath-0.10.0-py2.py3-none-any.whl"}
+jsonschema = {path = "./wheels/jsonschema-2.6.0-py2.py3-none-any.whl"}
+keystoneauth1 = {path = "./wheels/keystoneauth1-4.2.1-py3-none-any.whl"}
+msgpack = {path = "./wheels/msgpack-1.0.0-cp38-cp38-macosx_10_13_x86_64.whl"}
+msgpack-python = {path = "./wheels/msgpack_python-0.5.6-cp38-cp38-macosx_10_15_x86_64.whl"}
+netaddr = {path = "./wheels/netaddr-0.8.0-py2.py3-none-any.whl"}
+netifaces = {path = "./wheels/netifaces-0.10.9-cp38-cp38-macosx_10_15_x86_64.whl"}
+openapi-spec-validator = {path = "./wheels/openapi_spec_validator-0.2.9-py3-none-any.whl"}
+os-service-types = {path = "./wheels/os_service_types-1.7.0-py2.py3-none-any.whl"}
+oslo-config = {path = "./wheels/oslo.config-8.3.2-py3-none-any.whl"}
+oslo-i18n = {path = "./wheels/oslo.i18n-5.0.1-py3-none-any.whl"}
+oslo-serialization = {path = "./wheels/oslo.serialization-4.0.1-py3-none-any.whl"}
+oslo-utils = {path = "./wheels/oslo.utils-4.6.0-py3-none-any.whl"}
+packaging = {path = "./wheels/packaging-20.4-py2.py3-none-any.whl"}
+passlib = {path = "./wheels/passlib-1.7.2-py2.py3-none-any.whl"}
+pathlib = {path = "./wheels/pathlib-1.0.1-py3-none-any.whl"}
+pathtools = {path = "./wheels/pathtools-0.1.2-py3-none-any.whl"}
+pbr = {path = "./wheels/pbr-5.5.0-py2.py3-none-any.whl"}
+pg8000 = {path = "./wheels/pg8000-1.10.6-py2.py3-none-any.whl"}
+prettytable = {path = "./wheels/prettytable-0.7.2-py3-none-any.whl"}
+prometheus-client = {path = "./wheels/prometheus_client-0.7.1-py3-none-any.whl"}
+prometheus-flask-exporter = {path = "./wheels/prometheus_flask_exporter-0.12.1-py3-none-any.whl"}
+psutil = {path = "./wheels/psutil-5.6.7-cp38-cp38-macosx_10_15_x86_64.whl"}
+psycopg2-binary = {path = "./wheels/psycopg2_binary-2.8.4-cp38-cp38-macosx_10_9_x86_64.macosx_10_9_intel.macosx_10_10_intel.macosx_10_10_x86_64.whl"}
+pyopenssl = {path = "./wheels/pyOpenSSL-19.1.0-py2.py3-none-any.whl"}
+pyasn1 = {path = "./wheels/pyasn1-0.4.8-py2.py3-none-any.whl"}
+pyasn1-modules = {path = "./wheels/pyasn1_modules-0.2.8-py2.py3-none-any.whl"}
+pycparser = {path = "./wheels/pycparser-2.20-py2.py3-none-any.whl"}
+pyparsing = {path = "./wheels/pyparsing-2.4.7-py2.py3-none-any.whl"}
+python-dateutil = {path = "./wheels/python_dateutil-2.8.1-py2.py3-none-any.whl"}
+python-keystoneclient = {path = "./wheels/python_keystoneclient-3.22.0-py2.py3-none-any.whl"}
+python-rapidjson = {path = "./wheels/python_rapidjson-0.9.1-cp38-cp38-macosx_10_9_x86_64.whl"}
+python-swiftclient = {path = "./wheels/python_swiftclient-3.8.1-py2.py3-none-any.whl"}
+pytz = {path = "./wheels/pytz-2019.3-py2.py3-none-any.whl"}
+requests = {path = "./wheels/requests-2.23.0-py2.py3-none-any.whl"}
+retrying = {path = "./wheels/retrying-1.3.3-py3-none-any.whl"}
+rfc3986 = {path = "./wheels/rfc3986-1.4.0-py2.py3-none-any.whl"}
+s3transfer = {path = "./wheels/s3transfer-0.3.3-py2.py3-none-any.whl"}
+semantic-version = {path = "./wheels/semantic_version-2.6.0-py3-none-any.whl"}
+service-identity = {path = "./wheels/service_identity-18.1.0-py2.py3-none-any.whl"}
+setuptools = {path = "./wheels/setuptools-50.3.0-py3-none-any.whl"}
+six = {path = "./wheels/six-1.14.0-py2.py3-none-any.whl"}
+stevedore = {path = "./wheels/stevedore-3.2.2-py3-none-any.whl"}
+swagger-spec-validator = {path = "./wheels/swagger_spec_validator-2.4.3-py2.py3-none-any.whl"}
+toastedmarshmallow = {path = "./wheels/toastedmarshmallow-2.15.2.post1-py3-none-any.whl"}
+treelib = {path = "./wheels/treelib-1.5.5-py3-none-any.whl"}
+typing = {path = "./wheels/typing-3.7.4.1-py3-none-any.whl"}
+urllib3 = {path = "./wheels/urllib3-1.25.9-py2.py3-none-any.whl"}
+watchdog = {path = "./wheels/watchdog-0.9.0-cp38-cp38-macosx_10_15_x86_64.whl"}
+wrapt = {path = "./wheels/wrapt-1.12.1-cp38-cp38-macosx_10_15_x86_64.whl"}
+yosai = {path = "./wheels/yosai-0.3.2-py2.py3-none-any.whl"}
+zope-component = {path = "./wheels/zope.component-4.6-py2.py3-none-any.whl"}
+zope-deferredimport = {path = "./wheels/zope.deferredimport-4.3.1-py2.py3-none-any.whl"}
+zope-deprecation = {path = "./wheels/zope.deprecation-4.4.0-py2.py3-none-any.whl"}
+zope-event = {path = "./wheels/zope.event-4.5.0-py2.py3-none-any.whl"}
+zope-hookable = {path = "./wheels/zope.hookable-5.0.1-cp38-cp38-macosx_10_15_x86_64.whl"}
+zope-interface = {path = "./wheels/zope.interface-4.7.1-cp38-cp38-macosx_10_15_x86_64.whl"}
+zope-proxy = {path = "./wheels/zope.proxy-4.3.5-cp38-cp38-macosx_10_9_x86_64.whl"}
+
+[requires]
+python_version = "3.8"
