@@ -11,12 +11,12 @@ spec:
       - name: jnlp
         workingDir: /home/jenkins
       - name: maven
-        image: maven:3.6-jdk11
+        image: maven:3.6-jdk-11
         command: ['cat']
         tty: true
         workingDir: /home/jenkins
       - name: inline-scan
-        image: secure-inline-scan:2
+        image: sysdiglabs/secure-inline-scan:2
         command: ['cat']
 """
        }
