@@ -1,0 +1,60 @@
+pipeline {
+    agent {
+        kuberne
+        kubernetes {
+            yaml """
+apiVersion: v1 
+kind: Pod 
+metadata: 
+    name: dind
+    annotations:
+      container.apparmor.security.beta.kubernetes.io/dind: unconfined
+      container.seccomp.security.alpha.kubernetes.io/dind: unconfined
+spec: 
+    containers: 
+      - name: jnlp
+        workingDir: /home/jenkins
+      - name: maven
+        image: maven:3.6-jdk11
+        command: ['cat']
+        tty: true
+        workingDir: /home/jenkins
+      - name: inline-scan
+        image: secure-inline-scan:2.0.0-rc0
+        command: ['cat']
+"""
+       }
+   }
+
+    parameters { 
+        string(name: 'IMAGE_NAME', defaultValue: 'alpine', description: 'Name of the image to be built andscanned (e.g.: myrepo/dummy-app)') 
+    }
+    
+    environment {
+        DOCKER = credentials('docker-repository-credentials')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                container("maven") {
+                    checkout scm
+                }
+            }
+        }
+        stage('Build Image') {
+            steps {
+                container("maven") {
+                    sh "mvn package"
+                }
+            }
+        }
+        stage('Scanning Image') {
+            steps {
+                container("inline-scan") {
+                    sh "/sysdig-inline-scan.sh -k xxxxx-xxxx-xxx ${IMAGE_NAME}"
+                }
+            }
+        }
+   }
+}
