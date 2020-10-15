@@ -5,10 +5,7 @@ pipeline {
 apiVersion: v1 
 kind: Pod 
 metadata: 
-    name: dind
-    annotations:
-      container.apparmor.security.beta.kubernetes.io/dind: unconfined
-      container.seccomp.security.alpha.kubernetes.io/dind: unconfined
+    name: inline-scan-worker
 spec: 
     containers: 
       - name: jnlp
@@ -19,7 +16,7 @@ spec:
         tty: true
         workingDir: /home/jenkins
       - name: inline-scan
-        image: secure-inline-scan:2.0.0-rc0
+        image: secure-inline-scan:2
         command: ['cat']
 """
        }
