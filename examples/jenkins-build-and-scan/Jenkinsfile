@@ -50,39 +50,27 @@ spec:
         stage('Build image - no push') {
             steps {
                 container("builder") {
-                    sh """cat > config.json <<EOF
-{
-	"auths": {
-		"https://index.docker.io/v1/": {
-			"auth": "\$(echo -n \${DOCKER} | base64)"
-		}
-	}
-}
-EOF
-                    """
-                    sh "cat config.json"
                     sh """cat > Dockerfile <<EOF
 FROM gcr.io/distroless/java:11
-COPY target/hello.jar /hello.jar
+COPY hello.jar /hello.jar
 CMD /hello.jar
 EOF
                     """
-                    sh "/kaniko/executor --context . --verbosity debug --destination ${IMAGE_NAME} --oci-layout-path=./oci --no-push"
-
+                    sh "/kaniko/executor --context \"${WORKSPACE}/target\" --destination ${IMAGE_NAME} --oci-layout-path \"${WORKSPACE}/oci\" --no-push"
                 }
             }
         }
         stage('Scanning Image') {
             steps {
                 container("inline-scan") {
-                    sh "/sysdig-inline-scan.sh -k ${SECURE_API_KEY_PSW} --storage-type oci-dir --storage-path ./oci ${IMAGE_NAME}"
+                    sh "/sysdig-inline-scan.sh -k ${SECURE_API_KEY_PSW} --storage-type oci-dir --storage-path \"${WORKSPACE}/oci\" ${IMAGE_NAME}"
                 }
             }
         }
         stage('Push image') {
             steps {
                 sh "echo Use skopeo or another tool to push to the registry - see https://github.com/sysdiglabs/tekton-inline-scanning/blob/master/beta/tekton-inline-scan-localbuild-beta.yaml"
-                // ...
+                //sh "/bin/usr/skopeo copy \"oci:/${WORKSPACE}/oci/\" docker://${IMAGE_NAME}"
             }
         }
    }
