@@ -17,7 +17,7 @@ For version 1.x.y documentation head over [here](./v1.md)
 
 **Note**: For Airgapped environments, we suggest the following:
 
-* docker pull sysdiglabs/sysdig-inline-scan:2.0.0 (if using the inline scan container)
+* docker pull sysdiglabs/secure-inline-scan:2 (if using the inline scan container)
 * Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning or on-prem url
 
 **Note**: For onprem environments, use the -o flag in order to get the correct scan result URL.
@@ -29,7 +29,7 @@ For version 1.x.y documentation head over [here](./v1.md)
 ```
 docker run --rm
     -v /var/run/docker.sock:/var/run/docker.sock \
-    sysdiglabs/sysdig-inline-scan:2.0.0 \
+    sysdiglabs/secure-inline-scan:2 \
     --sysdig-url <omitted> \
     --sysdig-token <omitted> \
     --storage-type docker-daemon \
@@ -44,7 +44,7 @@ Assuming it's avaiable the image tarball at `image.tar`.
 ```
 docker run --rm
     -v ${PWD}/image.tar:/tmp/image.tar \
-    sysdiglabs/sysdig-inline-scan:2.0.0 \
+    sysdiglabs/secure-inline-scan:2 \
     --sysdig-url <omitted> \
     --sysdig-token <omitted> \
     --storage-type docker-archive \
@@ -57,7 +57,7 @@ docker run --rm
 
 ```
 docker run --rm
-    sysdiglabs/sysdig-inline-scan:2.0.0 \
+    sysdiglabs/secure-inline-scan:2 \
     --sysdig-url <omitted> \
     --sysdig-token <omitted> \
     alpine
@@ -66,7 +66,7 @@ docker run --rm
 ### Private registry image
 ```
 docker run --rm
-    sysdiglabs/sysdig-inline-scan:2.0.0 \
+    sysdiglabs/secure-inline-scan:2 \
     --sysdig-url <omitted> \
     --sysdig-token <omitted> \
     --registry-auth-basic <user:passw> \
@@ -83,7 +83,7 @@ Authentication methods available are:
 For a complete list of options, please refer to the command's help.
 
 ```
-docker run --rm sysdiglabs/secure-inline-scan:2.0.0 --help
+docker run --rm sysdiglabs/secure-inline-scan:2 --help
 ```
 ## Major changes with v1
 
