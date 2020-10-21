@@ -144,6 +144,10 @@ Sysdig Inline Analyzer -- USAGE
         oci-dir         Image is provided as a OCI image, untared.
                         The directory must be mounted inside the container and path set with --storage-path
 
+    --storage-path <PATH>   Specifies the path to the source of the image to scan, that has to be 
+                            mounted inside the container, it is required if --storage-type is set to 
+                            docker-archive, oci-archive or oci-dir
+
     == EXIT CODES ==
 
     0   Scan result "pass"
