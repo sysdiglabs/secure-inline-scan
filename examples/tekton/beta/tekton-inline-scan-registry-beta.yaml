@@ -29,7 +29,7 @@ spec:
   type: image
   params:
     - name: url
-      value: index.docker.io/vicenteherrera/leeroy-web
+      value: index.docker.io/username/leeroy-web
 
 ---
 apiVersion: tekton.dev/v1beta1
