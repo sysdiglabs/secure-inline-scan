@@ -27,7 +27,7 @@ For version 1.x.y documentation head over [here](./v1.md)
 ### Locally built image (local registry)
 
 ```
-docker run --rm
+docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     sysdiglabs/secure-inline-scan:2 \
     --sysdig-url <omitted> \
@@ -42,7 +42,7 @@ docker run --rm
 Assuming it's avaiable the image tarball at `image.tar`.
 
 ```
-docker run --rm
+docker run --rm \
     -v ${PWD}/image.tar:/tmp/image.tar \
     sysdiglabs/secure-inline-scan:2 \
     --sysdig-url <omitted> \
