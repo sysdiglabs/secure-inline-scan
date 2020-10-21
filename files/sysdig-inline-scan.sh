@@ -83,7 +83,7 @@ Sysdig Inline Analyzer -- USAGE
                 Alternatively, set environment variable SYSDIG_API_TOKEN
                 Alias: --sysdig-token
     -s <URL>    [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
-                If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
+                If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com).
                 Alias: --sysdig-url
     --sysdig-skip-tls
                 [optional] skip tls verification when calling secure endpoints
