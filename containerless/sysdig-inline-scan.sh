@@ -6,7 +6,7 @@ if [[ ! $(which pipenv) ]]; then
 fi
 
 if [[ ! $(pipenv run anchore-manager) ]]; then
-   pipenv install wheels/*
+   pipenv install $(dirname ${BASH_SOURCE[0]})/wheels/*.whl
 fi
 
 export ANCHORE_CONFIG_DIR=.
@@ -52,4 +52,4 @@ export ANCHORE_OAUTH_TOKEN_EXPIRATION=3600
 export ANCHORE_AUTH_ENABLE_HASHED_PASSWORDS=false
 export AUTHLIB_INSECURE_TRANSPORT=true
 
-pipenv run ./_sysdig-inline-scan.sh $@
+pipenv run $(dirname ${BASH_SOURCE[0]})/_sysdig-inline-scan.sh $@

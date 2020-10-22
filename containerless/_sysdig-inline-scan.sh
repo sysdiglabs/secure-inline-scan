@@ -615,7 +615,7 @@ print_scan_result_summary_message() {
     if [[ ! "${v_flag-""}" && ! "${r_flag-""}" && ! "${json_flag-""}" ]]; then
         if [[ ! "${status}" = "pass" ]]; then
             print_info "Result Details:"
-            curl -sS ${CURL_FLAGS} --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=true" 2>&1 | print_info_pipe
+            curl -sS ${CURL_FLAGS} --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=true" 2>&1 | jq -c | print_info_pipe
         fi
     fi
 
