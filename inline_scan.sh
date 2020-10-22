@@ -80,7 +80,7 @@ Sysdig Inline Analyzer --
 
       -k <TEXT>  [required] API token for Sysdig Scanning auth (ex: -k 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
       -s <TEXT>  [optional] Sysdig Secure URL (ex: -s 'https://secure-sysdig.svc.cluster.local').
-                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com/).
+                 If not specified, it will default to Sysdig Secure SaaS URL (https://secure.sysdig.com).
       -a <TEXT>  [optional] Add annotations (ex: -a 'key=value,key=value')
       -f <PATH>  [optional] Path to Dockerfile (ex: -f ./Dockerfile)
       -i <TEXT>  [optional] Specify image ID used within Sysdig (ex: -i '<64 hex characters>')
