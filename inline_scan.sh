@@ -367,8 +367,7 @@ post_analysis() {
     fi
     if [[ "${f_flag-""}" ]]; then
         # shellcheck disable=SC2016
-        CREATE_CMD+=('--dockerfile "${DOCKERFILE}"')
-        # shellcheck disable=SC2016
+        CREATE_CMD+=('--dockerfile "/anchore-engine/$(basename ${DOCKERFILE})"')
         COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
     fi
 
