@@ -501,6 +501,10 @@ get_scan_result_with_retries() {
             status=$(echo "${status}" | tr -d '\n')
             break
         fi
+        if [[ "${GET_CALL_STATUS}" != 404 ]]; then
+            echo "Unexpected exit code from curl. Retrying"
+            sleep 10
+        fi        
         now=`date +%s`
         total_runtime=$((now-retries_start))
         if [ "${total_runtime}" -gt "300" ]; then
