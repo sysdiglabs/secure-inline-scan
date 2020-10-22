@@ -493,12 +493,19 @@ get_scan_result_code() {
 
 get_scan_result_with_retries() {
     # Fetching the result of each scanned digest
+    retries_start=`date +%s`
     for ((i=0;  i < GET_CALL_RETRIES; i++)); do
         get_scan_result_code
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
             status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }' )
             status=$(echo "${status}" | tr -d '\n')
             break
+        fi
+        now=`date +%s`
+        total_runtime=$((now-retries_start))
+        if [ "${total_runtime}" -gt "300" ]; then
+            echo "*** curl retries timeout. Exiting with return code 0"
+            exit 0
         fi
         echo "." && sleep 1
     done
