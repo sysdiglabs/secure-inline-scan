@@ -483,7 +483,12 @@ get_repo_digest_id() {
 }
 
 get_scan_result_code() {
-    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
+    start=`date +%s`
+    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" || exit 0)
+    end=`date +%s`
+    runtime=$((end-start))
+    echo "*** curl status: ${GET_CALL_STATUS}"
+    echo "*** curl runtime: ${runtime} seconds"
 }
 
 get_scan_result_with_retries() {
@@ -491,11 +496,11 @@ get_scan_result_with_retries() {
     for ((i=0;  i < GET_CALL_RETRIES; i++)); do
         get_scan_result_code
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
-            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }')
+            status=$(curl -sk --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" | grep "status" | cut -d : -f 2 | awk -F\" '{ print $2 }' )
             status=$(echo "${status}" | tr -d '\n')
             break
         fi
-        echo -n "." && sleep 1
+        echo "." && sleep 1
     done
 
     printf "Scan Report - \n"
