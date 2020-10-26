@@ -2,7 +2,7 @@
 
 This containerized application is useful for performing local analysis on container images (both from registries and locally built) and post the result of the analysis to [Sysdig Secure](https://sysdig.com/products/kubernetes-security/).
 
-Sysdig inline scan V2 works as an independent container, without Docker dependency (it can be used in other container runtimes), and can analyze images in different input formats.
+Sysdig inline scan V2 works as an independent container, without any Docker dependency (it can be used in other container runtimes), and can analyze images in different input formats.
 
 ---
 ## Note about older version (1.x)
