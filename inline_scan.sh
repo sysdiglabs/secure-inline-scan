@@ -174,18 +174,6 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - invalid combination of Sysdig secure endpoint" >&2
         display_usage_analyzer >&2
         exit 1
-    elif [[ "${a_flag:-}" ]]; then
-        # transform all commas to spaces & cast to an array
-        local annotation_array
-        IFS=" " read -r -a annotation_array <<< "${SYSDIG_ANNOTATIONS//,/ }"
-        # get count of = in annotation string
-        local number_keys=${SYSDIG_ANNOTATIONS//[^=]}
-        # compare number of elements in array with number of = in annotation string
-        if [[ "${#number_keys}" -ne "${#annotation_array[@]}" ]]; then
-            printf '\n\t%s\n\n' "ERROR - ${SYSDIG_ANNOTATIONS} is not a valid input for -a option" >&2
-            display_usage_analyzer >&2
-            exit 1
-        fi
     elif [[ "${f_flag:-}" ]] && [[ ! -f "${DOCKERFILE}" ]]; then
         printf '\n\t%s\n\n' "ERROR - Dockerfile: ${DOCKERFILE} does not exist" >&2
         display_usage_analyzer >&2
@@ -202,6 +190,20 @@ get_and_validate_analyzer_options() {
         printf '\n\t%s\n\n' "ERROR - must specify file path - ${PDF_DIRECTORY} without trailing slash" >&2
         display_usage_analyzer >&2
         exit 1
+    fi
+
+    if [[ "${a_flag:-}" ]]; then
+        # transform all commas to spaces & cast to an array
+        local annotation_array
+        IFS=" " read -r -a annotation_array <<< "${SYSDIG_ANNOTATIONS//,/ }"
+        # get count of = in annotation string
+        local number_keys=${SYSDIG_ANNOTATIONS//[^=]}
+        # compare number of elements in array with number of = in annotation string
+        if [[ "${#number_keys}" -ne "${#annotation_array[@]}" ]]; then
+            printf '\n\t%s\n\n' "ERROR - ${SYSDIG_ANNOTATIONS} is not a valid input for -a option" >&2
+            display_usage_analyzer >&2
+            exit 1
+        fi
     fi
 
     if [[ "${V_flag:-}" ]]; then
