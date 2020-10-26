@@ -135,7 +135,7 @@ For a complete list of options, please refer to the command's help.
 docker run --rm sysdiglabs/secure-inline-scan:2 --help
 ```
 
-# Changes with v1
+# Changes from v1.x.x
 
 ## New features
 
@@ -152,7 +152,7 @@ docker run --rm sysdiglabs/secure-inline-scan:2 --help
  * **TLS verification**: starting from version 2, you'll need to explicitly pass `--sysdig-skip-tls` if targeting an on-prem with non verifiable certificate.
 
 
-## Other relevant changes changes
+## Other relevant changes
 
 ### Flags normalizations
 
