@@ -15,7 +15,7 @@ steps:
   args: ['push', '${_IMAGE_URL}:${_IMAGE_TAG}']
 
 substitutions:
-  _IMAGE_URL: 'gcr.io/my-example-project-283415/coffeewip-website'
+  _IMAGE_URL: 'gcr.io/project-name/image-name'
   _IMAGE_TAG: 'latest'
 
 
