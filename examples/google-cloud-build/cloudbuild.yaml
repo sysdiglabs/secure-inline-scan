@@ -1,0 +1,22 @@
+steps:
+
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', '${_IMAGE_URL}:${_IMAGE_TAG}', '.']
+
+- name: gcr.io/cloud-builders/gcloud
+  entrypoint: 'bash'
+  args: [ '-c', "gcloud secrets versions access latest --secret=sysdig_token --format='get(payload.data)' | tr '_-' '/+' | base64 -d > decrypted-data.txt" ]
+
+- name: 'sysdiglabs/secure-inline-scan'
+  entrypoint: 'bash'
+  args: [ '-c', '/bin/inline_scan.sh analyze -k $(cat decrypted-data.txt) ${_IMAGE_URL}:${_IMAGE_TAG}' ]
+
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_IMAGE_URL}:${_IMAGE_TAG}']
+
+substitutions:
+  _IMAGE_URL: 'gcr.io/project-name/image-name'
+  _IMAGE_TAG: 'latest'
+
+
+timeout: 900s
