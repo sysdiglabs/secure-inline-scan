@@ -1,6 +1,6 @@
 .PHONY: major minor patch release build test push bump-git bump
 
-VERSION=$(shell cat version_v1)
+VERSION=$(shell cat version)
 IMAGE_NAME=sysdiglabs/secure-inline-scan
 INLINE_SCAN_SCRIPT=inline_scan.sh
 
@@ -20,7 +20,7 @@ release:
 	$(MAKE) push
 
 build:
-	docker build -t $(IMAGE_NAME):$(VERSION) -f Dockerfile_v1 . --no-cache
+	docker build -t $(IMAGE_NAME):$(VERSION) -f Dockerfile . --no-cache
 
 push: build
 	docker push $(IMAGE_NAME):$(VERSION)
@@ -29,13 +29,13 @@ push: build
 #TODO: We should upload the updated script to https://download.sysdig.com/stable/inline_scan.sh
 
 bump-git:
-	git add version_v1
+	git add version
 	git commit -m "Release $(VERSION)"
 	git tag -m "Release $(VERSION)" -a "$(VERSION)"
 	git push --follow-tags
 
 bump:
-	cat version_v1 | xargs npx semver -i $(INCREMENT) | tee version_v1
+	cat version | xargs npx semver -i $(INCREMENT) | tee version
 	$(MAKE) bump-git
 
 shellcheck:
