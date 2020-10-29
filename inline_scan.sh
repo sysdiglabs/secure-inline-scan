@@ -54,7 +54,6 @@ fi
 
 display_usage() {
     cat << EOF
-
 Sysdig Inline Scanner/Analyzer --
 
   Wrapper script for performing vulnerability scan or image analysis on local docker images, utilizing the Sysdig inline_scan container.
@@ -67,7 +66,6 @@ EOF
 
 display_usage_analyzer() {
     cat << EOF
-
 Sysdig Inline Analyzer --
 
   Script for performing analysis on local container images, utilizing the Sysdig analyzer subsystem.
@@ -99,6 +97,11 @@ EOF
 main() {
     trap 'cleanup' EXIT ERR SIGTERM
     trap 'interupt' SIGINT
+
+    printf "**************************** DEPRECATION WARNING ****************************\n"
+    printf "You are using an old version of the Sysdig Inline Scanner. V2 is available.\n"
+    printf "Check https://github.com/sysdiglabs/secure-inline-scan for more information.\n"
+    printf "*****************************************************************************\n\n"
 
     if [[ "$#" -lt 1 ]] || { [[ "$1" != 'analyze' ]] && [[ "$1" != 'help' ]]; }; then
         display_usage >&2
