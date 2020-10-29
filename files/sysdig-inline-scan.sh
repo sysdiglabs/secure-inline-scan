@@ -47,9 +47,9 @@ exit_with_error() {
 
 print_info() {
     if [[ -z "${silent_flag:-}" ]]; then
-        echo "$1" | tee -a ${TMP_PATH}/info.log
+        echo "$1" | tee -a "${TMP_PATH}/info.log"
     else
-        echo "$1" >> ${TMP_PATH}/info.log
+        echo "$1" >> "${TMP_PATH}/info.log"
     fi
 }
 
@@ -314,7 +314,7 @@ time_start() {
 time_end() {
     if [[ -n "${time_flag:-}" ]]; then
         END=$(date +%s%3N)
-        print_info "Time elapsed($1): $((${END} - ${TIME_PROFILE[$1]}))ms"
+        print_info "Time elapsed($1): $((END - TIME_PROFILE[$1]))ms"
     fi
 }
 
