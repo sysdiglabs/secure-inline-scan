@@ -28,7 +28,6 @@ MANIFEST_FILE="./manifest.json"
 PDF_DIRECTORY="$PWD"
 GET_CALL_STATUS=''
 GET_CALL_RETRIES=300
-DETAIL=false
 SKOPEO_REGISTRY_CONF=()
 SKOPEO_AUTH=(--authfile /config/auth.json)
 SKOPEO_COPY_AUTH=(--authfile /config/auth.json)
@@ -202,7 +201,7 @@ get_and_validate_analyzer_options() {
             -m | --manifest ) m_flag=true; MANIFEST_FILE="$2"; shift 2;;
             -o | --on-prem ) o_flag=true; shift;;
             -c ) clean_flag=true; shift;;
-            -v | --verbose ) v_flag=true; DETAIL=true; shift;;
+            -v | --verbose ) v_flag=true; shift;;
             -r | --report-folder ) r_flag=true; PDF_DIRECTORY="$2"; shift 2;;
             -n | --registry-skip-tls ) n_flag=true; shift;;
             --registry-auth-basic ) SKOPEO_AUTH=(--creds "$2"); SKOPEO_COPY_AUTH=(--src-creds "$2"); shift 2;;
@@ -229,7 +228,6 @@ get_and_validate_analyzer_options() {
                     JSON )
                         json_flag=true
                         silent_flag=true
-                        DETAIL=true
                         ;;
                     * )
                         printf "ERROR: unsupported output format '%s'\n\n" "$2" >&2
@@ -569,7 +567,7 @@ post_analysis() {
 }
 
 get_scan_result() {
-    GET_CALL_STATUS=$(curl -s ${CURL_FLAGS} -o "${TMP_PATH}"/sysdig_report.log --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" || exit 0)
+    GET_CALL_STATUS=$(curl -s ${CURL_FLAGS} -o "${TMP_PATH}"/sysdig_report.log --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=true" || exit 0)
 }
 
 get_scan_result_with_retries() {
@@ -594,23 +592,43 @@ display_report() {
 
     status=$(jq -r ".[0][][][0].status // empty" "${TMP_PATH}"/sysdig_report.log)
 
-    if [[ -z "${json_flag:-}" ]]; then
-        print_info "Scan Report:"
-        print_info_pipe < "${TMP_PATH}"/sysdig_report.log
-    fi
+    print_info ""
+    print_info "Scan Report"
+    #print_info_pipe < "${TMP_PATH}"/sysdig_report.log
+
+    # shellcheck disable=SC2016
+    JQ_FORMAT=(
+        '.[0][][][0].detail.result.image_id as $image_id |'
+        '"\n" +'
+        '"Last Evaluation: " + .[0][][][0].last_evaluation + "\n" +'
+        '"Final action:    " + .[0][][][0].detail.result.result[$image_id].result.final_action + "\n" +'
+        '"Status:          " + .[0][][][0].status + "\n\n" +'
+        '"Evaluation results\n" '
+    )
+    print_info "$(jq -r "${JQ_FORMAT[*]}" "${TMP_PATH}"/sysdig_report.log)"
+
+    # shellcheck disable=SC2016
+    JQ_FORMAT=(
+        '.[0][][][0].detail.result.image_id as $image_id | '
+        '.[0][][][0].detail.result.result[$image_id].result.header as $headers | '
+        '($headers|index("Gate_Action")) as $action_col | '
+        '($headers|index("Gate")) as $gate_col | '
+        '($headers|index("Trigger")) as $trigger_col | '
+        '($headers|index("Check_Output")) as $output_col | '
+        '(.[0][][][0].detail.result.result[$image_id].result.rows[] | " - " + .[$action_col] + " " + .[$gate_col] + ":" + .[$trigger_col] + " " + .[$output_col])'
+    )
+    print_info "$(jq -r "${JQ_FORMAT[*]}" "${TMP_PATH}"/sysdig_report.log)"
+    print_info ""
 
     if [[ "${r_flag-""}" ]]; then
         print_info "Downloading PDF Scan result for image digest: ${SYSDIG_IMAGE_DIGEST}"
         get_scan_result_pdf_by_digest
     fi
 
-    if [[ "${status}" = "pass" ]]; then
-        print_info "Status is pass"
-        print_scan_result_summary_message
-    else
-        print_info "Status is fail"
-        print_scan_result_summary_message
+    print_info "Status is ${status}"
+    print_scan_result_summary_message
 
+    if [[ "${status}" != "pass" ]]; then
         if [[ "${clean_flag:-}" ]]; then
             print_info "Cleaning image from Anchore"
             time_start "Clean image from backend"
@@ -648,13 +666,6 @@ urlencode() {
 }
 
 print_scan_result_summary_message() {
-    if [[ ! "${v_flag-""}" && ! "${r_flag-""}" && ! "${json_flag-""}" ]]; then
-        if [[ ! "${status}" = "pass" ]]; then
-            print_info "Result Details:"
-            curl -sS ${CURL_FLAGS} --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=true" 2>&1 | jq -c | print_info_pipe
-        fi
-    fi
-
     if [[ -z "${clean_flag:-}" ]]; then
         ENCODED_TAG=$(urlencode "${FULLTAG}")
         if [[ "${o_flag:-}" ]]; then
