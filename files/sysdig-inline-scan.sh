@@ -594,7 +594,10 @@ display_report() {
 
     print_info ""
     print_info "Scan Report"
-    #print_info_pipe < "${TMP_PATH}"/sysdig_report.log
+
+    if [[ "${v_flag:-}" ]]; then
+        print_info_pipe "  " < "${TMP_PATH}"/sysdig_report.log
+    fi
 
     # shellcheck disable=SC2016
     JQ_FORMAT=(

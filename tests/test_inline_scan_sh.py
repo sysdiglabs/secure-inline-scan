@@ -265,7 +265,7 @@ class InlineScanShellScript(unittest.TestCase):
             else:
                 remaining_output_lines = remaining_output_lines[message_index:]
 
-        match = re.search(r'"status": "(?P<result>\w*)"', stdout)
+        match = re.search(r'Status:\s*(?P<result>\w*)', stdout)
         self.assertIsNotNone(match)
         scan_result = match.group('result')
 
@@ -274,8 +274,6 @@ class InlineScanShellScript(unittest.TestCase):
         self.assertEqual(scan_result, match.group('result'))
 
         self.assertIn(image_name_with_tag, stdout)
-        match = re.search(r'"status": "(?P<result>\w*)"', stdout)
-        self.assertIsNotNone(match)
 
         return scan_result
 

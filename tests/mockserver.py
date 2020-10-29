@@ -80,7 +80,57 @@ class MockServer(Thread):
             report = [{
                 digest: {
                     tag: [{
-                        "status": self.report_result
+                        "status": self.report_result,
+                        "last_evaluation": "2020-10-29T17:18:50Z",
+                        "detail": {
+                            "result": {
+                                "final_action": "warn",
+                                "image_id": "imageid-xxxx",
+                                "result": {
+                                    "imageid-xxxx": {
+                                        "result": {
+                                            "final_action": "warn",
+                                            "image_id": "imageid-xxxx",
+                                            "header": [
+                                                "Image_Id",
+                                                "Repo_Tag",
+                                                "Trigger_Id",
+                                                "Gate",
+                                                "Trigger",
+                                                "Check_Output",
+                                                "Gate_Action",
+                                                "Whitelisted",
+                                                "Policy_Id"
+                                            ],
+                                            "rows": [
+                                                [
+                                                    "imageid-xxxx",
+                                                    tag,
+                                                    "41cb7cdf04850e33a11f80c42bf660b3",
+                                                    "mock-gate",
+                                                    "mock-trigger",
+                                                    "Gate output 1",
+                                                    "warn",
+                                                    False,
+                                                    "default"
+                                                ],
+                                                [
+                                                    "imageid-xxxx",
+                                                    tag,
+                                                    "1571e70ee221127984dcf585a56d4cff",
+                                                    "mock-gate",
+                                                    "mock-trigger",
+                                                    "Gate output 2",
+                                                    "warn",
+                                                    False,
+                                                    "default"
+                                                ]
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }]
                 }
             }]
