@@ -534,7 +534,7 @@ post_analysis() {
 }
 
 get_scan_result() {
-    GET_CALL_STATUS=$(curl -s ${CURL_FLAGS} -o "${TMP_PATH}"/sysdig_report.log --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
+    GET_CALL_STATUS=$(curl -s ${CURL_FLAGS} -o "${TMP_PATH}"/sysdig_report.log --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" || exit 0)
 }
 
 get_scan_result_with_retries() {
@@ -544,7 +544,11 @@ get_scan_result_with_retries() {
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
             return
         fi
-        print_info "." && sleep 1
+        if [[ "${GET_CALL_STATUS}" != 404 ]]; then
+            print_info "x" && sleep 10
+        else
+            print_info "." && sleep 1
+        fi
     done
     exit_with_error "Unable to fetch scan result"
 }

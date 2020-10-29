@@ -369,7 +369,7 @@ post_analysis() {
     fi
     if [[ "${f_flag-""}" ]]; then
         # shellcheck disable=SC2016
-        CREATE_CMD+=('--dockerfile "${DOCKERFILE}"')
+        CREATE_CMD+=('--dockerfile "/anchore-engine/$(basename ${DOCKERFILE})"')
         # shellcheck disable=SC2016
         COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
     fi
@@ -485,7 +485,7 @@ get_repo_digest_id() {
 }
 
 get_scan_result_code() {
-    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
+    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" || exit 0)
 }
 
 get_scan_result_with_retries() {
@@ -497,7 +497,11 @@ get_scan_result_with_retries() {
             status=$(echo "${status}" | tr -d '\n')
             break
         fi
-        echo -n "." && sleep 1
+        if [[ "${GET_CALL_STATUS}" != 404 ]]; then
+            echo -n "x" && sleep 10
+        else
+            echo -n "." && sleep 1
+        fi 
     done
 
     printf "Scan Report - \n"
