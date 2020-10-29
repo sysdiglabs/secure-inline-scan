@@ -26,7 +26,7 @@ For version 1.x.y documentation head over [here](./v1.md)
 
 **Note**: For onprem environments, use the -o flag in order to get the correct scan result URL.
 
-## Common scenarios & recipies
+## Common scenarios & recipes
 
 ### Scan local image, built using docker
 
@@ -126,6 +126,15 @@ docker run \
     --sysdig-token <omitted> \
     docker.io/library/alpine
 ```
+
+### Other integrations and examples
+
+See the [examples folder at the repository](https://github.com/sysdiglabs/secure-inline-scan/tree/master/examples) for more usage examples and integrations:
+
+* Jenkins in Kubernetes using PodTemplates
+* Tekton
+* Google Cloud Build
+* ...
 
 ## Options
 
