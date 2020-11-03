@@ -33,6 +33,7 @@ SKOPEO_REGISTRY_CONF=()
 SKOPEO_AUTH=(--authfile /config/auth.json)
 SKOPEO_COPY_AUTH=(--authfile /config/auth.json)
 CURL_FLAGS=""
+declare -A TIME_PROFILE
 
 exit_with_error() {
     if [[ -z "${silent_flag:-}" ]]; then
@@ -110,6 +111,9 @@ Sysdig Inline Analyzer -- USAGE
                 JSON  Write a valid JSON which can be processed in an automated way
 
                 (Others formats might be included in the future)
+    --time-profile
+                Output information about the time elapsed in the different stages of the scan process
+
 
     == IMAGE SOURCE OPTIONS ==
 
@@ -173,7 +177,7 @@ main() {
 
 get_and_validate_analyzer_options() {
     RETCODE=0
-    PARSED_ARGS=$(getopt -n "ERROR" -o k:s:a:f:i:d:m:ocvr:hn:l: --long help,format:,registry-auth-token:,registry-auth-basic:,registry-auth-file:,storage-type:,storage-path:,sysdig-token:,sysdig-url:,sysdig-skip-tls,annotations:,dockerfile:,image-id:,digest:,manifest:,on-prem,verbose,report-folder:,registry-skip-tls -- "$@") || RETCODE=$?
+    PARSED_ARGS=$(getopt -n "ERROR" -o k:s:a:f:i:d:m:ocvr:hn:l: --long help,format:,registry-auth-token:,registry-auth-basic:,registry-auth-file:,storage-type:,storage-path:,sysdig-token:,sysdig-url:,sysdig-skip-tls,annotations:,dockerfile:,image-id:,digest:,manifest:,on-prem,verbose,report-folder:,registry-skip-tls,time-profile -- "$@") || RETCODE=$?
 
     if [ "$RETCODE" != "0" ]; then
         printf "\n" >&2
@@ -235,6 +239,7 @@ get_and_validate_analyzer_options() {
                 esac
                 shift 2
                 ;;
+            --time-profile ) time_flag=true; shift;;
             --) shift; break ;;
             *) printf "ERROR: Unexpected option: %s - this should not happen.\n" "$1"; exit 2;;
         esac
@@ -278,7 +283,7 @@ get_and_validate_analyzer_options() {
 
     if [[ "${v_flag:-}" ]]; then
         set -x
-    fi    
+    fi
 
     if [[ -n "${SYSDIG_ANNOTATIONS}" ]]; then
         # transform all commas to spaces & cast to an array
@@ -290,7 +295,7 @@ get_and_validate_analyzer_options() {
         if [[ "${#number_keys}" -ne "${#annotation_array[@]}" ]]; then
             exit_with_error "${SYSDIG_ANNOTATIONS} is not a valid input for -a option"
         fi
-    fi    
+    fi
 
     TMP_PATH="${TMP_PATH}/sysdig-inline-scan-$(date +%s)"
     mkdir -p "${TMP_PATH}"
@@ -299,6 +304,19 @@ get_and_validate_analyzer_options() {
     fi
 
     VALIDATED_OPTIONS=( "$@" )
+}
+
+time_start() {
+    if [[ -n "${time_flag:-}" ]]; then
+        TIME_PROFILE[$1]=$(date +%s%3N)
+    fi
+}
+
+time_end() {
+    if [[ -n "${time_flag:-}" ]]; then
+        END=$(date +%s%3N)
+        print_info "Time elapsed($1): $((END - TIME_PROFILE[$1]))ms"
+    fi
 }
 
 check_dependencies() {
@@ -376,17 +394,23 @@ EOF
         print_info "Inspecting image from remote repository -- ${IMAGE_NAME}"
         SOURCE_IMAGE="docker://${IMAGE_NAME}"
     fi 
+    time_start "Get manifest"
     MANIFEST=$(skopeo inspect "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_AUTH[@]}" --raw "${SOURCE_IMAGE}" 2> "${TMP_PATH}"/err.log) || find_image_error "${IMAGE_NAME}"
+    time_end "Get manifest"
+    time_start "Inspect image"
     INSPECT=$(skopeo inspect "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_AUTH[@]}" "${SOURCE_IMAGE}" 2> "${TMP_PATH}"/err.log) || find_image_error "${IMAGE_NAME}"
+    time_end "Inspect image"
 
     FULL_IMAGE_NAME=$(echo -n "${INSPECT}" | jq -r .Name 2> "${TMP_PATH}"/err.log || exit_with_error "Parsing inspect JSON document.\n$(cat "${TMP_PATH}"/err.log)")
     REPO_TAG=$(echo -n "${INSPECT}" | jq -r '.RepoTags[0] // empty')
     if [[ ! "${i_flag-""}" ]]; then
         MANIFEST_TYPE=$(echo -n "${MANIFEST}" | jq -r .mediaType)
         if [[ "${MANIFEST_TYPE}" == "application/vnd.docker.distribution.manifest.list.v2+json" ]]; then
-            # If we have retried a manifest list, resolve to the linux/amd64 manifest hash and check config from there
+            # If we have retrieved a manifest list, resolve to the linux/amd64 manifest hash and check config from there
             PLATFORM_DIGEST=$(echo "${MANIFEST}" | jq -r '.manifests[] | select((.platform.os == "linux") and (.platform.architecture == "amd64")) | .digest')
+            time_start "Get child manifest"
             REAL_MANIFEST=$(skopeo inspect "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_AUTH[@]}" --raw docker://"${FULL_IMAGE_NAME}@${PLATFORM_DIGEST}")
+            time_end "Get child manifest"
             SYSDIG_IMAGE_ID=$(echo -n "${REAL_MANIFEST}" | jq -r '.config.digest // empty' | cut -f2 -d ":" )
         else
             #TODO(airadier): Probably this works, but the later OCI config digest will differ from the docker or other sources config digest
@@ -401,7 +425,9 @@ EOF
 convert_image() {
     if [[ "${SOURCE_IMAGE}" != "oci:${DEST_IMAGE_PATH}" ]]; then
         print_info "Converting image..."
+        time_start "Convert image"
         skopeo copy "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_COPY_AUTH[@]}" "${SOURCE_IMAGE}" "oci:${DEST_IMAGE_PATH}" 2> "${TMP_PATH}"/err.log | print_info_pipe "  " || find_image_error "${IMAGE_NAME}"
+        time_end "Convert image"
     fi
 }
 
@@ -442,7 +468,10 @@ start_analysis() {
     print_info "  Repo digest: ${SYSDIG_IMAGE_DIGEST}"
     print_info "  Image id:    ${SYSDIG_IMAGE_ID}"
 
+    time_start "Check scan status"
     get_scan_result
+    time_end "Check scan status"
+
     if [[ "${GET_CALL_STATUS}" != 200 ]]; then
         convert_image
         perform_analysis
@@ -501,7 +530,9 @@ perform_analysis() {
     ANALYZE_CMD+=('--tag "${FULLTAG}"')
 
     print_info "Analyzing image..."
+    time_start "Analyze image"
     eval "${ANALYZE_CMD[*]}" > "${TMP_PATH}"/analyze.out 2>&1 || true
+    time_end "Analyze image"
 
     if [[ -f "${TMP_PATH}/image-analysis-archive.tgz" ]]; then
         if [[ "${v_flag:-}" ]]; then
@@ -516,13 +547,17 @@ perform_analysis() {
 post_analysis() {
     # Posting the archive to the secure backend (sync import)
     print_info "Sending analysis result to Secure backend"
+    time_start "Post analysis - sync"
     HCODE=$(curl -sS ${CURL_FLAGS} -o "${TMP_PATH}/sysdig_output.log" --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/sync/import/images" 2> /dev/null)
+    time_end "Post analysis - sync"
 
     if [[ "${HCODE}" != 200 ]]; then
         if [[ "${HCODE}" == 404 ]]; then
             # Posting the archive to the secure backend (async import)
             print_info "  Calling async import endpoint"
+            time_start "Post analysis - async"
             HCODE=$(curl -sS ${CURL_FLAGS} -o "${TMP_PATH}/sysdig_output.log" --write-out "%{http_code}" -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -H "imageId: ${SYSDIG_IMAGE_ID}" -H "digestId: ${SYSDIG_IMAGE_DIGEST}" -H "imageName: ${FULLTAG}" -F "archive_file=@${TMP_PATH}/image-analysis-archive.tgz" "${SYSDIG_SCANNING_URL}/import/images" 2> /dev/null)
+            time_end "Post analysis - async"
             if [[ "${HCODE}" != 200 ]]; then
                 exit_with_error "Unable to POST image metadata to ${SYSDIG_SCANNING_URL%%/}/import/images\n***SERVICE RESPONSE - Code ${HCODE}****\n$(cat "${TMP_PATH}"/sysdig_output.log 2> /dev/null)\n***END SERVICE RESPONSE****"
             fi
@@ -540,7 +575,9 @@ get_scan_result() {
 get_scan_result_with_retries() {
     # Fetching the result of each scanned digest
     for ((i=0;  i < GET_CALL_RETRIES; i++)); do
+        time_start "Get scan result"
         get_scan_result
+        time_end "Get scan result"
         if [[ "${GET_CALL_STATUS}" == 200 ]]; then
             return
         fi
@@ -572,7 +609,9 @@ display_report() {
 
         if [[ "${clean_flag:-}" ]]; then
             print_info "Cleaning image from Anchore"
+            time_start "Clean image from backend"
             curl -X DELETE -sS ${CURL_FLAGS} -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}?force=true" >/dev/null 2>&1
+            time_end "Clean image from backend"
         fi
     fi
 
@@ -626,7 +665,9 @@ print_scan_result_summary_message() {
 
 get_scan_result_pdf_by_digest() {
     date_format=$(date +'%Y-%m-%d')
+    time_start "Get PDF report"
     curl -sS ${CURL_FLAGS} --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -o "${PDF_DIRECTORY}/${date_format}-${FULLTAG##*/}-scan-result.pdf" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/report?tag=${FULLTAG}"  2> "${TMP_PATH}"/curl.err || exit_with_error "Error downloading PDF report.\n$(cat "${TMP_PATH}"/curl.err)"
+    time_end "Get PDF report"
 }
 
 interupt() {
