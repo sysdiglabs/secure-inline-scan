@@ -590,7 +590,7 @@ get_scan_result_with_retries() {
 
 display_report() {
 
-    status=$(jq -r ".[0][][][0].status // empty" "${TMP_PATH}"/sysdig_report.log)
+    status=$(jq -r ".[0][][][0].status // empty" "${TMP_PATH}"/sysdig_report.log || echo "UNKNOWN")
 
     print_info ""
     print_info "Scan Report"
@@ -608,7 +608,7 @@ display_report() {
         '"Status:          " + .[0][][][0].status + "\n\n" +'
         '"Evaluation results\n" '
     )
-    print_info "$(jq -r "${JQ_FORMAT[*]}" "${TMP_PATH}"/sysdig_report.log)"
+    print_info "$(jq -r "${JQ_FORMAT[*]}" "${TMP_PATH}"/sysdig_report.log || echo "Error parsing scan report")"
 
     # shellcheck disable=SC2016
     JQ_FORMAT=(
@@ -620,7 +620,7 @@ display_report() {
         '($headers|index("Check_Output")) as $output_col | '
         '(.[0][][][0].detail.result.result[$image_id].result.rows[] | " - " + .[$action_col] + " " + .[$gate_col] + ":" + .[$trigger_col] + " " + .[$output_col])'
     )
-    print_info "$(jq -r "${JQ_FORMAT[*]}" "${TMP_PATH}"/sysdig_report.log)"
+    print_info "$(jq -r "${JQ_FORMAT[*]}" "${TMP_PATH}"/sysdig_report.log || echo "Error parsing scan report")"
     print_info ""
 
     if [[ "${r_flag-""}" ]]; then
