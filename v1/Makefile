@@ -20,7 +20,7 @@ release:
 	$(MAKE) push
 
 build:
-	docker build -t $(IMAGE_NAME):$(VERSION) -f Dockerfile . --no-cache
+	docker build -t $(IMAGE_NAME):$(VERSION) -f Dockerfile .. --no-cache
 
 push: build
 	docker push $(IMAGE_NAME):$(VERSION)
