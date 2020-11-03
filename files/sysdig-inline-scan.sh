@@ -14,7 +14,7 @@ SCAN_IMAGE=""
 VALIDATED_OPTIONS=""
 # Vuln scan option variable defaults
 DOCKERFILE=""
-TMP_PATH=${TMP_PATH:-"/tmp/sysdig-inline-scan"}
+TMP_PATH="/tmp/sysdig"
 DEST_IMAGE_PATH="${TMP_PATH}/oci-image"
 # Analyzer option variable defaults
 SYSDIG_BASE_SCANNING_URL="https://secure.sysdig.com"
@@ -47,9 +47,9 @@ exit_with_error() {
 
 print_info() {
     if [[ -z "${silent_flag:-}" ]]; then
-        echo "$1" | tee -a "${TMP_PATH}/info.log"
+        echo "$1" | tee -a ${TMP_PATH}/info.log
     else
-        echo "$1" >> "${TMP_PATH}/info.log"
+        echo "$1" >> ${TMP_PATH}/info.log
     fi
 }
 
@@ -295,8 +295,9 @@ get_and_validate_analyzer_options() {
         if [[ "${#number_keys}" -ne "${#annotation_array[@]}" ]]; then
             exit_with_error "${SYSDIG_ANNOTATIONS} is not a valid input for -a option"
         fi
-    fi    
+    fi
 
+    TMP_PATH="${TMP_PATH}/sysdig-inline-scan-$(date +%s)"
     mkdir -p "${TMP_PATH}"
     if [[ "${v_flag:-}" ]]; then
         print_info "Using temporary path ${TMP_PATH}"
