@@ -237,6 +237,14 @@ class InlineScanShellScript(unittest.TestCase):
         self.assertEqual(process_result.return_code, 2)
         self.assertIn("ERROR: must provide the Sysdig Secure API token", process_result.stderr)
 
+    def test_scan_with_http500_get_scan_result_api(self):
+        self.server.init_test(report_result="pass", return_error_500=2)
+        image_name_with_tag = "docker.io/alpine:3.10.3"
+        process_result = self.inline_scan(image_name_with_tag)
+        scan_result = self.check_output(process_result.stdout, image_name_with_tag)
+        self.check_scan_result(scan_result, process_result.return_code)
+        self.assertNotIn(f"docker.io/{image_name_with_tag}", process_result.stdout)
+
     @staticmethod
     def find_message_index_in_output(message, output_lines):
         for index, line in enumerate(output_lines):

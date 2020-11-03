@@ -16,6 +16,7 @@ class MockServer(Thread):
         self.url = "http://0.0.0.0:%s" % self.port
         self.known_images = []
         self.report_result = "unknown"
+        self.return_error_500 = 0
 
         self.app.add_url_rule("/shutdown", view_func=self._shutdown_server)
         self.add_json_response("/api/scanning/v1/anchore/images", [])
@@ -71,6 +72,9 @@ class MockServer(Thread):
         return dict(code=0, message="OK", detail=dict())
 
     def handle_images(self, digest):
+        if self.return_error_500 > 0:
+            self.return_error_500 = self.return_error_500 - 1
+            return (dict(), 500)
         if digest in self.known_images:
             tag = request.args.get('tag')
             report = [{
@@ -91,6 +95,7 @@ class MockServer(Thread):
         print("MockServer:: Unhandled request {} /{}".format(request.method, path), file=sys.stderr)
         return ("", 500)
 
-    def init_test(self, known_images=[], report_result="unknown"):
+    def init_test(self, known_images=[], report_result="unknown", return_error_500=0):
         self.known_images = known_images
         self.report_result = report_result
+        self.return_error_500 = return_error_500

@@ -54,7 +54,6 @@ fi
 
 display_usage() {
     cat << EOF
-
 Sysdig Inline Scanner/Analyzer --
 
   Wrapper script for performing vulnerability scan or image analysis on local docker images, utilizing the Sysdig inline_scan container.
@@ -67,7 +66,6 @@ EOF
 
 display_usage_analyzer() {
     cat << EOF
-
 Sysdig Inline Analyzer --
 
   Script for performing analysis on local container images, utilizing the Sysdig analyzer subsystem.
@@ -99,6 +97,11 @@ EOF
 main() {
     trap 'cleanup' EXIT ERR SIGTERM
     trap 'interupt' SIGINT
+
+    printf "**************************** DEPRECATION WARNING ****************************\n"
+    printf "You are using an old version of the Sysdig Inline Scanner. V2 is available.\n"
+    printf "Check https://github.com/sysdiglabs/secure-inline-scan for more information.\n"
+    printf "*****************************************************************************\n\n"
 
     if [[ "$#" -lt 1 ]] || { [[ "$1" != 'analyze' ]] && [[ "$1" != 'help' ]]; }; then
         display_usage >&2
@@ -369,7 +372,7 @@ post_analysis() {
     fi
     if [[ "${f_flag-""}" ]]; then
         # shellcheck disable=SC2016
-        CREATE_CMD+=('--dockerfile "${DOCKERFILE}"')
+        CREATE_CMD+=('--dockerfile "/anchore-engine/$(basename ${DOCKERFILE})"')
         # shellcheck disable=SC2016
         COPY_CMDS+=('docker cp "${DOCKERFILE}" "${DOCKER_NAME}:/anchore-engine/$(basename ${DOCKERFILE})";')
     fi
@@ -485,7 +488,7 @@ get_repo_digest_id() {
 }
 
 get_scan_result_code() {
-    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}")
+    GET_CALL_STATUS=$(curl -sk -o /dev/null --write-out "%{http_code}" --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL}/images/${SYSDIG_IMAGE_DIGEST}/check?tag=${FULLTAG}&detail=${DETAIL}" || exit 0)
 }
 
 get_scan_result_with_retries() {
@@ -497,7 +500,11 @@ get_scan_result_with_retries() {
             status=$(echo "${status}" | tr -d '\n')
             break
         fi
-        echo -n "." && sleep 1
+        if [[ "${GET_CALL_STATUS}" != 404 ]]; then
+            echo -n "x" && sleep 10
+        else
+            echo -n "." && sleep 1
+        fi 
     done
 
     printf "Scan Report - \n"
