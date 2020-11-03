@@ -683,12 +683,6 @@ cleanup() {
         local ret="$1"
     fi
     set +e
-
-    if [[ "${v_flag:-}" ]]; then
-        print_info "Removing temporary folder created ${TMP_PATH}"
-    fi
-    rm -rf "${TMP_PATH}"
-
     exit "${ret}"
 }
 
