@@ -116,6 +116,21 @@ class InlineScanShellScript(unittest.TestCase):
         )
         self.check_scan_result(scan_result, process_result.return_code)
 
+    def test_scan_image_invalid_json_report(self):
+        self.server.init_test(report_result="pass", known_images={
+            "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd" : [{
+                    "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd": {
+                        "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd": [{
+                            "status": "fail"
+                        }]
+                    }
+                }]
+            })
+        image_name = "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"
+        process_result = self.inline_scan(image_name)
+        self.assertIn("Error parsing scan report", process_result.stdout)
+        self.assertIn("Status is fail", process_result.stdout)
+
     @unittest.skip("not implemented")
     def test_scan_image_from_private_registry(self):
         raise NotImplementedError()
@@ -126,6 +141,7 @@ class InlineScanShellScript(unittest.TestCase):
         image_name_with_tag = "localbuild/{}".format(self.local_image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
+
 
     def test_scan_with_clean_flag_pass_image(self):
         self.server.init_test(report_result="pass")
@@ -265,7 +281,7 @@ class InlineScanShellScript(unittest.TestCase):
             else:
                 remaining_output_lines = remaining_output_lines[message_index:]
 
-        match = re.search(r'"status": "(?P<result>\w*)"', stdout)
+        match = re.search(r'Status:\s*(?P<result>\w*)', stdout)
         self.assertIsNotNone(match)
         scan_result = match.group('result')
 
@@ -274,8 +290,6 @@ class InlineScanShellScript(unittest.TestCase):
         self.assertEqual(scan_result, match.group('result'))
 
         self.assertIn(image_name_with_tag, stdout)
-        match = re.search(r'"status": "(?P<result>\w*)"', stdout)
-        self.assertIsNotNone(match)
 
         return scan_result
 

@@ -14,7 +14,7 @@ class MockServer(Thread):
         self.app = Flask(__name__)
         self.app.config['TESTING'] = True
         self.url = "http://0.0.0.0:%s" % self.port
-        self.known_images = []
+        self.known_images = dict()
         self.report_result = "unknown"
         self.return_error_500 = 0
 
@@ -67,7 +67,7 @@ class MockServer(Thread):
         self.app.run(port=self.port)
 
     def handle_import(self):
-        self.known_images.append(request.headers["digestId"])
+        self.known_images[request.headers["digestId"]] = None
         request.files['archive_file'].read()
         return dict(code=0, message="OK", detail=dict())
 
@@ -77,13 +77,65 @@ class MockServer(Thread):
             return (dict(), 500)
         if digest in self.known_images:
             tag = request.args.get('tag')
-            report = [{
-                digest: {
-                    tag: [{
-                        "status": self.report_result
-                    }]
-                }
-            }]
+            report = self.known_images[digest]
+            if report == None:
+                report = [{
+                    digest: {
+                        tag: [{
+                            "status": self.report_result,
+                            "last_evaluation": "2020-10-29T17:18:50Z",
+                            "detail": {
+                                "result": {
+                                    "final_action": "warn",
+                                    "image_id": "imageid-xxxx",
+                                    "result": {
+                                        "imageid-xxxx": {
+                                            "result": {
+                                                "final_action": "warn",
+                                                "image_id": "imageid-xxxx",
+                                                "header": [
+                                                    "Image_Id",
+                                                    "Repo_Tag",
+                                                    "Trigger_Id",
+                                                    "Gate",
+                                                    "Trigger",
+                                                    "Check_Output",
+                                                    "Gate_Action",
+                                                    "Whitelisted",
+                                                    "Policy_Id"
+                                                ],
+                                                "rows": [
+                                                    [
+                                                        "imageid-xxxx",
+                                                        tag,
+                                                        "41cb7cdf04850e33a11f80c42bf660b3",
+                                                        "mock-gate",
+                                                        "mock-trigger",
+                                                        "Gate output 1",
+                                                        "warn",
+                                                        False,
+                                                        "default"
+                                                    ],
+                                                    [
+                                                        "imageid-xxxx",
+                                                        tag,
+                                                        "1571e70ee221127984dcf585a56d4cff",
+                                                        "mock-gate",
+                                                        "mock-trigger",
+                                                        "Gate output 2",
+                                                        "warn",
+                                                        False,
+                                                        "default"
+                                                    ]
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }]
+                    }
+                }]
             return (json.dumps(report), 200)
         else:
             return (dict(), 404)
@@ -95,7 +147,7 @@ class MockServer(Thread):
         print("MockServer:: Unhandled request {} /{}".format(request.method, path), file=sys.stderr)
         return ("", 500)
 
-    def init_test(self, known_images=[], report_result="unknown", return_error_500=0):
-        self.known_images = known_images
+    def init_test(self, known_images=None, report_result="unknown", return_error_500=0):
+        self.known_images = known_images or dict()
         self.report_result = report_result
         self.return_error_500 = return_error_500
