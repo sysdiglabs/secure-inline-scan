@@ -2,9 +2,9 @@
 
 VERSION=$(shell cat version)
 IMAGE_NAME=sysdiglabs/secure-inline-scan
-ENTRYPOINT_SCRIPT=files/sysdig-inline-scan.sh
+INLINE_SCAN_SCRIPT=inline_scan.sh
 
-test: shellcheck unittests
+test: shellcheck
 
 major:
 	$(MAKE) release INCREMENT='major'
@@ -20,13 +20,13 @@ release:
 	$(MAKE) push
 
 build:
-	docker build -t $(IMAGE_NAME):$(VERSION) . --no-cache
+	docker build -t $(IMAGE_NAME):$(VERSION) -f Dockerfile .. --no-cache
 
 push: build
 	docker push $(IMAGE_NAME):$(VERSION)
-#We don't release secure-inline-scan:2 as :latest yet, for backwards compatibility 
-#	docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):latest
-#	docker push $(IMAGE_NAME):latest
+	docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):latest
+	docker push $(IMAGE_NAME):latest
+#TODO: We should upload the updated script to https://download.sysdig.com/stable/inline_scan.sh
 
 bump-git:
 	git add version
@@ -40,11 +40,7 @@ bump:
 
 shellcheck:
 	docker run --rm \
-		--mount type=bind,source=$(PWD)/$(ENTRYPOINT_SCRIPT),target=/$(ENTRYPOINT_SCRIPT) \
+		--mount type=bind,source=$(PWD)/$(INLINE_SCAN_SCRIPT),target=/$(INLINE_SCAN_SCRIPT) \
 		koalaman/shellcheck \
-		-- /$(ENTRYPOINT_SCRIPT)
-
-unittests:
-	$(MAKE) -C tests
-
+		-- /$(INLINE_SCAN_SCRIPT)
 

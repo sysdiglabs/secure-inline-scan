@@ -27,8 +27,8 @@ pipeline{
             }
         }
         stage('Scan') {
-            steps {        
-                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock sysdig/sysdig-inline-scan -s ${SYSDIG_SECURE_URL} -k ${SYSDIG_SECURE_TOKEN} ${IMAGE_NAME}"
+            steps {
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock sysdiglabs/secure-inline-scan analyze -s ${SYSDIG_SECURE_URL} -k ${SYSDIG_SECURE_TOKEN} ${IMAGE_NAME}"
             }
         }
     post {

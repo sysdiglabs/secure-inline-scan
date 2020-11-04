@@ -38,7 +38,7 @@ jobs:
       with:
         username: ${{ secrets.SYSDIGLABS_DOCKERHUB_USER }}
         password: ${{ secrets.SYSDIGLABS_DOCKERHUB_TOKEN }}
-        repository: sysdiglabs/sysdig-inline-scan
+        repository: sysdiglabs/secure-inline-scan
         add_git_labels: true
         dockerfile: Dockerfile
         tags: ci
