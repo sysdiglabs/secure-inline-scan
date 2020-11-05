@@ -15,6 +15,7 @@ class MockServer(Thread):
         self.app.config['TESTING'] = True
         self.url = "http://0.0.0.0:%s" % self.port
         self.known_images = dict()
+        self.known_digests = []
         self.report_result = "unknown"
         self.return_error_500 = 0
 
@@ -42,6 +43,10 @@ class MockServer(Thread):
             "/<path:path>",
             self.catch_all,
             methods=('GET', 'POST', 'DELETE'))
+        self.add_callback_response(
+            "/api/scanning/v1/images/<digest>/addAlias",
+            self.handle_put_alias,
+            methods=('PUT',))
 
     def _shutdown_server(self):
         if 'werkzeug.server.shutdown' not in request.environ:
@@ -70,6 +75,13 @@ class MockServer(Thread):
         self.known_images[request.headers["digestId"]] = None
         request.files['archive_file'].read()
         return dict(code=0, message="OK", detail=dict())
+
+    def handle_put_alias(self, digest):
+        fulltag = request.json["fulltag"]
+
+        if digest in self.known_digests and fulltag:
+            return ("", 200)
+        return ("", 400)
 
     def handle_images(self, digest):
         if self.return_error_500 > 0:
@@ -147,7 +159,12 @@ class MockServer(Thread):
         print("MockServer:: Unhandled request {} /{}".format(request.method, path), file=sys.stderr)
         return ("", 500)
 
-    def init_test(self, known_images=None, report_result="unknown", return_error_500=0):
+    def init_test(self,
+                  known_images=None,
+                  known_digests=None,
+                  report_result="unknown",
+                  return_error_500=0):
         self.known_images = known_images or dict()
+        self.known_digests = known_digests or []
         self.report_result = report_result
         self.return_error_500 = return_error_500

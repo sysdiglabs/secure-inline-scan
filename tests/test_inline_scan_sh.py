@@ -59,6 +59,7 @@ class InlineScanShellScript(unittest.TestCase):
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
         self.assertNotIn(f"docker.io/{image_name_with_tag}", process_result.stdout)
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_image_from_public_registry_adds_docker_io_if_omitted(self):
         self.server.init_test(report_result="pass")
@@ -67,6 +68,7 @@ class InlineScanShellScript(unittest.TestCase):
         process_result = self.inline_scan(image_name)
         scan_result = self.check_output(process_result.stdout, image_name_with_registry)
         self.check_scan_result(scan_result, process_result.return_code)
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_image_from_public_registry_fail(self):
         self.server.init_test(report_result="fail")
@@ -74,6 +76,7 @@ class InlineScanShellScript(unittest.TestCase):
         process_result = self.inline_scan(image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_image_json_output_pass(self):
         self.server.init_test(report_result="pass")
@@ -81,6 +84,7 @@ class InlineScanShellScript(unittest.TestCase):
         process_result = self.inline_scan(image_name_with_tag, other_params=["--format", "JSON"])
         out_json = json.loads(process_result.stdout)
         self.assertEqual("pass", out_json['status'])
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_image_json_output_fail(self):
         self.server.init_test(report_result="fail")
@@ -88,6 +92,7 @@ class InlineScanShellScript(unittest.TestCase):
         process_result = self.inline_scan(image_name_with_tag, other_params=["--format", "JSON"])
         out_json = json.loads(process_result.stdout)
         self.assertEqual("fail", out_json['status'])
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_docker_archive(self):
         self.server.init_test(report_result="pass")
@@ -97,6 +102,7 @@ class InlineScanShellScript(unittest.TestCase):
         process_result = self.inline_scan(image_name_with_tag, docker_params=["-v", "$(pwd)/image.tar:/tmp/testimage.tar"], other_params=["--storage-type", "docker-archive", "--storage-path", "/tmp/testimage.tar"])
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_image_from_public_registry_with_no_tag(self):
         self.server.init_test(report_result="pass")
@@ -105,6 +111,7 @@ class InlineScanShellScript(unittest.TestCase):
         process_result = self.inline_scan(image_name)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_image_by_digest(self):
         self.server.init_test(report_result="pass")
@@ -115,21 +122,54 @@ class InlineScanShellScript(unittest.TestCase):
             "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd",
         )
         self.check_scan_result(scan_result, process_result.return_code)
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_image_invalid_json_report(self):
-        self.server.init_test(report_result="pass", known_images={
-            "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd" : [{
-                    "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd": {
-                        "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd": [{
-                            "status": "fail"
-                        }]
-                    }
-                }]
-            })
+        self.server.init_test(
+            report_result="pass",
+            known_images={
+                "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd" : [{
+                        "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd": {
+                            "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd": [{
+                                "status": "fail"
+                            }]
+                        }
+                    }]
+            },
+            known_digests=[
+                "sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd",
+            ],
+        )
         image_name = "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"
         process_result = self.inline_scan(image_name)
         self.assertIn("Error parsing scan report", process_result.stdout)
         self.assertIn("Status is fail", process_result.stdout)
+
+    def test_remote_result_present_and_add_alias_OK(self):
+        digest ="sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"
+        self.server.init_test(
+            report_result="pass",
+            known_images={digest: None},
+            known_digests=[digest],
+        )
+        image_name = "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"
+        process_result = self.inline_scan(image_name)
+        self.assertIn("Status is pass", process_result.stdout)
+        self.assertIn("Trying to add alias for image", process_result.stdout)
+        self.assertIn("Added successfully alias tag for image", process_result.stdout)
+
+    def test_remote_result_present_and_add_alias_KO(self):
+        digest ="sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"
+        self.server.init_test(
+            report_result="pass",
+            known_images={digest: None},
+        )
+        image_name = "docker.io/python@sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e2a195906dd"
+        process_result = self.inline_scan(image_name)
+        self.assertIn("Status is pass", process_result.stdout)
+        self.assertIn("Trying to add alias for image", process_result.stdout)
+        self.assertIn("Failed to add alias tag for image", process_result.stdout)
+        self.assertNotIn("Added successfully alias tag for image", process_result.stdout)
 
     @unittest.skip("not implemented")
     def test_scan_image_from_private_registry(self):
@@ -141,7 +181,7 @@ class InlineScanShellScript(unittest.TestCase):
         image_name_with_tag = "localbuild/{}".format(self.local_image_name_with_tag)
         scan_result = self.check_output(process_result.stdout, image_name_with_tag)
         self.check_scan_result(scan_result, process_result.return_code)
-
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_with_clean_flag_pass_image(self):
         self.server.init_test(report_result="pass")
@@ -156,6 +196,7 @@ class InlineScanShellScript(unittest.TestCase):
                 self.fail(
                     f'Expected "{msg}" not to be in output.\nOutput:\n{process_result.stdout}'
                 )
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_with_clean_flag_fail_image(self):
         self.server.init_test(report_result="fail")
@@ -168,6 +209,7 @@ class InlineScanShellScript(unittest.TestCase):
         self.assertEqual(process_result.return_code, 1)
         self.assertIn("Cleaning image from Anchore", process_result.stdout)
         self.assertNotIn("View the full result @", process_result.stdout)
+        self.assertNotIn("Trying to add alias for image", process_result.stdout)
 
     def test_scan_use_image_digest_if_found_in_inspect(self):
         self.server.init_test(report_result="pass")

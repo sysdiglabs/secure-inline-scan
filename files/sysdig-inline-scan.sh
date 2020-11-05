@@ -117,9 +117,9 @@ Sysdig Inline Analyzer -- USAGE
     == IMAGE SOURCE OPTIONS ==
 
     [default] If --storage-type is not specified, pull container image from registry.
-            
+
         == REGISTRY AUTHENTICATION ==
-        
+
         When pulling from the registry,
         the credentials in the config file located at /config/auth.json will be
         used (so you can mount a docker config.json file, for example).
@@ -132,7 +132,7 @@ Sysdig Inline Analyzer -- USAGE
 
         -n                    Skip TLS certificate validation when pulling image
 
-    --storage-type <SOURCE-TYPE> 
+    --storage-type <SOURCE-TYPE>
 
         Where <SOURCE-TYPE> can be one of:
 
@@ -147,8 +147,8 @@ Sysdig Inline Analyzer -- USAGE
         oci-dir         Image is provided as a OCI image, untared.
                         The directory must be mounted inside the container and path set with --storage-path
 
-    --storage-path <PATH>   Specifies the path to the source of the image to scan, that has to be 
-                            mounted inside the container, it is required if --storage-type is set to 
+    --storage-path <PATH>   Specifies the path to the source of the image to scan, that has to be
+                            mounted inside the container, it is required if --storage-type is set to
                             docker-archive, oci-archive or oci-dir
 
     == EXIT CODES ==
@@ -166,7 +166,7 @@ main() {
     trap 'interupt' SIGINT
 
     get_and_validate_analyzer_options "$@"
-    SCAN_IMAGE="${VALIDATED_OPTIONS[0]}" 
+    SCAN_IMAGE="${VALIDATED_OPTIONS[0]}"
     touch "${TMP_PATH}"/info.log
     check_dependencies
     inspect_image
@@ -390,7 +390,7 @@ EOF
     else
         print_info "Inspecting image from remote repository -- ${IMAGE_NAME}"
         SOURCE_IMAGE="docker://${IMAGE_NAME}"
-    fi 
+    fi
     time_start "Get manifest"
     MANIFEST=$(skopeo inspect "${SKOPEO_REGISTRY_CONF[@]}" "${SKOPEO_AUTH[@]}" --raw "${SOURCE_IMAGE}" 2> "${TMP_PATH}"/err.log) || find_image_error "${IMAGE_NAME}"
     time_end "Get manifest"
@@ -476,13 +476,26 @@ start_analysis() {
         get_scan_result_with_retries
     else
         print_info "Image digest found on Sysdig Secure, skipping analysis."
+        time_start "Add alias tag"
+        add_tag_alias
+        time_end "Add alias tag"
+    fi
+}
+
+add_tag_alias() {
+    print_info "Trying to add alias for image"
+    ADD_ALIAS_STATUS=$(curl -sS ${CURL_FLAGS} -X "PUT" -o "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}"  --header "Content-Type: application/json" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" -d "{\"fulltag\": \"${FULLTAG}\"}" "${SYSDIG_SCANNING_URL}/images/${SYSDIG_IMAGE_DIGEST}/addAlias")
+    if [[ "${ADD_ALIAS_STATUS}" == 200 ]]; then
+        print_info "Added successfully alias tag for image"
+    else
+        print_info "Failed to add alias tag for image"
     fi
 }
 
 perform_analysis() {
     export ANCHORE_DB_HOST=x
     export ANCHORE_DB_USER=x
-    export ANCHORE_DB_PASSWORD=x 
+    export ANCHORE_DB_PASSWORD=x
 
     # shellcheck disable=SC2016
     ANALYZE_CMD+=('anchore-manager analyzers exec ${DEST_IMAGE_PATH} ${TMP_PATH}/image-analysis-archive.tgz')
@@ -511,7 +524,7 @@ perform_analysis() {
     # finally, get the account from Sysdig for the input username
     HCODE=$(curl -sS ${CURL_FLAGS} -o "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_SCANNING_URL%%/}/account" 2> /dev/null)
     if [[ "${HCODE}" == 404 ]]; then
-	    HCODE=$(curl -sS ${CURL_FLAGS} -o "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL%%/}/account" 2> /dev/null)
+    HCODE=$(curl -sS ${CURL_FLAGS} -o "${TMP_PATH}"/sysdig_output.log --write-out "%{http_code}" -H "Authorization: Bearer ${SYSDIG_API_TOKEN}" "${SYSDIG_ANCHORE_URL%%/}/account" 2> /dev/null)
     fi
 
     if [[ "${HCODE}" == 200 ]] && [[ -f "${TMP_PATH}/sysdig_output.log" ]]; then
