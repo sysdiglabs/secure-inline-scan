@@ -22,7 +22,7 @@ RUN set -ex && \
     make bin/skopeo DISABLE_CGO=1 && \
     make install-binary
 
-FROM anchore/anchore-engine:v0.7.3
+FROM quay.io/sysdig/anchore:0.8.1.7
 
 USER root
 
@@ -30,10 +30,7 @@ USER root
 COPY --from=anchore-engine-builder /usr/bin/skopeo /usr/bin/skopeo
 
 RUN curl https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -L -o /usr/local/bin/jq \
-    && chmod +x /usr/local/bin/jq \
-    && yum install sudo -yq \
-    && echo "anchore ALL = NOPASSWD: /usr/bin/chgrp" >> /etc/sudoers.d/anchore-docker-socker \
-    && echo "anchore ALL = NOPASSWD: /usr/bin/chmod g+s /usr/bin/skopeo" >> /etc/sudoers.d/anchore-docker-socker
+    && chmod +x /usr/local/bin/jq
 
 USER anchore
 

@@ -345,8 +345,8 @@ check_dependencies() {
         # Make sure we can access the docker sock...
         DOCKERGID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null) || exit_with_error "Cannot access /var/run/docker.sock"
         #  ...by changing the group of skopeo, which has "setgid" flag
-        sudo /usr/bin/chgrp "${DOCKERGID}" /usr/bin/skopeo
-        sudo /usr/bin/chmod g+s /usr/bin/skopeo
+        #sudo /usr/bin/chgrp "${DOCKERGID}" /usr/bin/skopeo
+        #sudo /usr/bin/chmod g+s /usr/bin/skopeo
     fi
 }
 
