@@ -22,7 +22,11 @@ For version 1.x.y documentation head over [here](./v1.md)
 **Note**: For Airgapped environments, we suggest the following:
 
 * docker pull sysdiglabs/secure-inline-scan:2 (if using the inline scan container)
-* Open firewall settings to allow traffic to https://secure.sysdig.com/api/scanning or on-prem url
+* Open firewall settings to allow traffic to the API endpoint, based on your environment:
+  https://secure.sysdig.com/api/scanning - US East SaaS
+  https://us2.app.sysdig.com/ - US West SaaS
+  https://eu1.app.sysdig.com/ - EMEA SaaS
+  Your on-prem url
 
 **Note**: For onprem environments, use the -o flag in order to get the correct scan result URL.
 
