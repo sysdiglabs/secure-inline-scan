@@ -101,7 +101,7 @@ Sysdig Inline Analyzer -- USAGE
                 Alias: --digest
     -c          [optional] Remove the image from Sysdig Secure if the scan fails
     -r <PATH>   [optional] Download scan result pdf in a specified container-local directory (ex: -r /staging/reports)
-                The directory needs to be previosly mounted from the host to persist the data
+                This directory needs to be previously mounted from the host to persist the data
                 Alias: --report-folder
     -v          [optional] Increase verbosity
                 Alias: --verbose
