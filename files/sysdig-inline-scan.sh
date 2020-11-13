@@ -100,8 +100,8 @@ Sysdig Inline Analyzer -- USAGE
     -d <SHA256> [optional] Specify image digest (ex: -d 'sha256:<64 hex characters>')
                 Alias: --digest
     -c          [optional] Remove the image from Sysdig Secure if the scan fails
-    -r <PATH>   [optional] Download scan result pdf in a specified local directory (ex: -r /staging/reports)
-                The specified directory must be mounted inside the container
+    -r <PATH>   [optional] Download scan result pdf in a specified container-local directory (ex: -r /staging/reports)
+                The directory needs to be previosly mounted from the host to persist the data
                 Alias: --report-folder
     -v          [optional] Increase verbosity
                 Alias: --verbose
