@@ -4,7 +4,7 @@
 # This script is left is just as a backward compatibility measure for those that uses the raw github URL instead of 
 # the S3 bucket version or the Inline Scan v2.
 # Sysdig Inline Scan V2 is the recommended version.
-# Check https://github.com/sysdiglabs/secure-inline-scan for more information
+# Check https://docs.sysdig.com/en/integrate-with-ci-cd-tools.html for more information
 ####################################################################################################################
 
 
