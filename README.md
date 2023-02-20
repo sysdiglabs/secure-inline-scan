@@ -5,9 +5,11 @@
 
 > **_WARNING:_**  This repository contains the deprecated inline-scan script V1
 >
-> Sysdig Inline Scan V2 is the recommended version.
+> Sysdig Inline Scan V2 is the recommended version for this old engine.
 >
->  Check https://docs.sysdig.com/en/integrate-with-ci-cd-tools.html for more information
+>  Check https://docs.sysdig.com/en/integrate-with-ci-cd-tools.html for more information about the old engine (2022)
+>
+>  Check https://docs.sysdig.com/en/docs/sysdig-secure/vulnerabilities/pipeline for more about the new engine (2023)
 
 ## Note about older version (1.x)
 
