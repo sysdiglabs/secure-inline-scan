@@ -1,10 +1,15 @@
+| :warning: This scanner is legacy. To work with the new scanner please go to the right [repository](https://github.com/sysdiglabs/secure-inline-scan-examples) or check the [documentation](https://docs.sysdig.com/en/docs/sysdig-secure/vulnerabilities/pipeline/) |
+| --- |
+
 # Sysdig inline scan
 
 > **_WARNING:_**  This repository contains the deprecated inline-scan script V1
 >
-> Sysdig Inline Scan V2 is the recommended version.
+> Sysdig Inline Scan V2 is the recommended version for this old engine.
 >
->  Check https://docs.sysdig.com/en/integrate-with-ci-cd-tools.html for more information
+>  Check https://docs.sysdig.com/en/integrate-with-ci-cd-tools.html for more information about the old engine (2022)
+>
+>  Check https://docs.sysdig.com/en/docs/sysdig-secure/vulnerabilities/pipeline for more about the new engine (2023)
 
 ## Note about older version (1.x)
 
