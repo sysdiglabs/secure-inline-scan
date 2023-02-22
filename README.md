@@ -1,4 +1,4 @@
-| :warning: This scanner is legacy. To work with the new scanner please go to the right [repository](https://github.com/sysdiglabs/secure-inline-scan-example) or check the [documentation](https://docs.sysdig.com/en/docs/sysdig-secure/vulnerabilities/pipeline/) |
+| :warning: This scanner is legacy. To work with the new scanner please go to the right [repository](https://github.com/sysdiglabs/secure-inline-scan-examples) or check the [documentation](https://docs.sysdig.com/en/docs/sysdig-secure/vulnerabilities/pipeline/) |
 | --- |
 
 # Sysdig inline scan
